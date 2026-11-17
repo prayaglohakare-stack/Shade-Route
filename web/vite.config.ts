@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const projectRoot = fileURLToPath(new URL('..', import.meta.url));
 
 export default defineConfig({
+  base: '/Shade-Route/',
   plugins: [react()],
   server: {
     fs: { allow: [projectRoot] },
