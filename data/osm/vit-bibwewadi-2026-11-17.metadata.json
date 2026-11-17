@@ -1,0 +1,32 @@
+{
+  "source": "OpenStreetMap API map endpoint",
+  "sourceUrl": "https://api.openstreetmap.org/api/0.6/map?bbox=73.8673428,18.4628630,73.8693322,18.4646223",
+  "retrievedAtUtc": "2026-11-17T15:51:49Z",
+  "bboxWgs84": {
+    "west": 73.8673428,
+    "south": 18.462863,
+    "east": 73.8693322,
+    "north": 18.4646223
+  },
+  "bboxDerivedFrom": {
+    "type": "way",
+    "id": "213874316",
+    "version": 3,
+    "timestamp": "2025-11-09T07:27:32Z",
+    "name": "Vishwakarma Institute of Technology (VIT)"
+  },
+  "elementCounts": {
+    "nodes": 328,
+    "ways": 48,
+    "relations": 1
+  },
+  "sha256": "0FACF150FD189119A993165B5DDD3417A4D63847733838CB17825431C1FA4BFA",
+  "license": "Open Database License (ODbL) 1.0",
+  "attribution": "© OpenStreetMap contributors",
+  "attributionUrl": "https://www.openstreetmap.org/copyright",
+  "notes": [
+    "Raw API response, preserved without geometry edits.",
+    "The rectangular bounding box includes some features outside the mapped college boundary.",
+    "This extract is a source snapshot, not a field-verified campus route network."
+  ]
+}

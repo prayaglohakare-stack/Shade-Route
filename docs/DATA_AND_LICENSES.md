@@ -2,7 +2,7 @@
 
 ## OpenStreetMap
 
-OpenStreetMap is the planned primary source for the first campus network and building footprints. The campus extract has not yet been retrieved or validated in this workspace. Preserve the snapshot date and source query, retain original element IDs, and display `© OpenStreetMap contributors` with a link to the OSM copyright page wherever OSM data is displayed.
+OpenStreetMap is the primary reference source for the first campus network and building footprints. A bounded raw snapshot was retrieved on 2026-11-17 and is preserved under `data/osm/` with its request URL, extent, retrieval time, element counts, SHA-256 and source attribution. The snapshot has not been field-validated. Preserve original element IDs and display `© OpenStreetMap contributors` with a link to the OSM copyright page wherever OSM data is displayed.
 
 OSM data is licensed under the Open Database License (ODbL). Review the licence and share-alike obligations before distributing an OSM-derived campus database. Keep source provenance so that independent field observations can be distinguished from OSM-derived content.
 

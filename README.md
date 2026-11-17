@@ -4,7 +4,7 @@
 
 ## Project status
 
-This repository contains the local project foundation, architecture notes and versioned data contracts. It does not yet contain the web application or verified VIT campus geometry. No campus paths, buildings, tree positions, routes or shade observations are included until they have been obtained and checked.
+This repository contains the local project foundation, architecture notes and versioned data contracts. It does not yet contain the web application or a validated VIT route network. A bounded, raw OpenStreetMap extract is now preserved for review under `data/osm/`; it is not field-verified campus geometry. No ShadeRoute route results or shade observations are included.
 
 ## MVP architecture
 
