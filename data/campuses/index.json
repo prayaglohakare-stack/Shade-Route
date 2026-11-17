@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "campuses": [
+    {
+      "campusId": "in-mh-pune-vit-bibwewadi",
+      "name": "Vishwakarma Institute of Technology — Bibwewadi",
+      "address": "666, Upper Indira Nagar, Bibwewadi, Pune, Maharashtra 411037",
+      "timezone": "Asia/Kolkata",
+      "dataStatus": "pending-validation"
+    }
+  ]
+}

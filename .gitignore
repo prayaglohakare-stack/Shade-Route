@@ -1,0 +1,19 @@
+# JavaScript build output and installed packages
+web/node_modules/
+web/dist/
+
+# Python tooling (optional offline preprocessing only)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Local environment and editor state
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Temporary survey exports; reviewed, consent-safe data belongs in data/survey
+data/working/

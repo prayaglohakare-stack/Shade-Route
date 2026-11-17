@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:shaderoute:schema:shade:1",
+  "title": "ShadeRoute edge shade data",
+  "type": "object",
+  "required": ["schemaVersion", "campusId", "networkRevision", "records"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "campusId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "networkRevision": { "type": "integer", "minimum": 1 },
+    "records": { "type": "array", "items": { "$ref": "#/$defs/record" } }
+  },
+  "$defs": {
+    "sourceRef": {
+      "type": "object",
+      "required": ["type", "sourceId"],
+      "properties": {
+        "type": { "enum": ["osm", "field-survey", "institution", "other"] },
+        "sourceId": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "range": {
+      "type": "object",
+      "required": ["low", "high"],
+      "properties": {
+        "low": { "type": "number", "minimum": 0, "maximum": 1 },
+        "high": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "required": ["edgeId", "validFrom", "validUntil", "status"],
+      "properties": {
+        "edgeId": { "type": "string", "minLength": 1 },
+        "validFrom": { "type": "string", "format": "date-time" },
+        "validUntil": { "type": "string", "format": "date-time" },
+        "status": { "enum": ["observed", "modeled", "unknown"] },
+        "shadeFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "shadeFractionRange": { "$ref": "#/$defs/range" },
+        "method": { "enum": ["field-observation", "geometry-model"] },
+        "recordedAt": { "type": "string", "format": "date-time" },
+        "sourceRef": { "$ref": "#/$defs/sourceRef" },
+        "unknownReason": { "type": "string", "minLength": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "status": { "enum": ["observed", "modeled"] } }, "required": ["status"] },
+          "then": { "required": ["shadeFraction", "method", "recordedAt", "sourceRef"], "not": { "required": ["unknownReason"] } }
+        },
+        {
+          "if": { "properties": { "status": { "const": "unknown" } }, "required": ["status"] },
+          "then": { "not": { "anyOf": [{ "required": ["shadeFraction"] }, { "required": ["shadeFractionRange"] }, { "required": ["method"] }, { "required": ["sourceRef"] }] } }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

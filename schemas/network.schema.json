@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:shaderoute:schema:network:1",
+  "title": "ShadeRoute walking network",
+  "type": "object",
+  "required": ["schemaVersion", "campusId", "dataRevision", "nodes", "edges"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "campusId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "dataRevision": { "type": "integer", "minimum": 1 },
+    "nodes": { "type": "array", "items": { "$ref": "#/$defs/node" } },
+    "edges": { "type": "array", "items": { "$ref": "#/$defs/edge" } }
+  },
+  "$defs": {
+    "coordinate": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "minimum": -180, "maximum": 180 },
+        { "type": "number", "minimum": -90, "maximum": 90 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "node": {
+      "type": "object",
+      "required": ["nodeId", "coordinates"],
+      "properties": {
+        "nodeId": { "type": "string", "minLength": 1 },
+        "coordinates": { "$ref": "#/$defs/coordinate" }
+      },
+      "additionalProperties": false
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": ["type", "sourceId"],
+      "properties": {
+        "type": { "enum": ["osm", "field-survey", "institution", "other"] },
+        "sourceId": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "required": ["edgeId", "fromNodeId", "toNodeId", "coordinates", "pathClass", "accessStatus", "verificationStatus", "sourceRef"],
+      "properties": {
+        "edgeId": { "type": "string", "minLength": 1 },
+        "fromNodeId": { "type": "string", "minLength": 1 },
+        "toNodeId": { "type": "string", "minLength": 1 },
+        "coordinates": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/coordinate" }
+        },
+        "pathClass": { "enum": ["footway", "path", "pedestrian", "steps", "covered-walkway", "service-road", "other"] },
+        "accessStatus": { "enum": ["permitted", "restricted", "unclear", "unknown"] },
+        "verificationStatus": { "enum": ["field-verified", "osm-unverified", "survey-added", "closed", "unknown"] },
+        "sourceRef": { "$ref": "#/$defs/sourceRef" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
