@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#245446">
+  <title>VIT Library to Canteen Corridor Field Sheet</title>
+  <style>
+    :root { color-scheme: light; --green:#245446; --ink:#1c2822; --muted:#5d6962; --line:#9aa9a0; --pale:#eaf1ed; --paper:#fff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#edf1ee; color:var(--ink); font:16px/1.38 system-ui, "Segoe UI", sans-serif; }
+    main { max-width:900px; margin:0 auto; padding:18px; }
+    .sheet { background:var(--paper); margin:0 auto 18px; padding:24px; border:1px solid #d2dbd5; border-radius:12px; box-shadow:0 2px 12px #12251b12; }
+    h1 { margin:0 0 4px; font-size:1.25rem; line-height:1.2; }
+    h2 { margin:0 0 10px; color:var(--green); font-size:1.14rem; }
+    h3 { margin:14px 0 7px; color:var(--green); font-size:.98rem; }
+    p { margin:5px 0 9px; }
+    .sub { color:var(--muted); font-size:.9rem; }
+    .notice { border:1px solid #c8d8ce; background:var(--pale); padding:10px 12px; margin:12px 0; border-radius:4px; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+    .grid.three { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .field { display:block; min-width:0; margin:5px 0; font-size:14px; font-weight:700; }
+    input, select, textarea { display:block; width:100%; min-height:42px; margin-top:4px; padding:8px; border:1px solid var(--line); border-radius:5px; background:#fff; color:var(--ink); font:inherit; font-weight:400; }
+    textarea { min-height:70px; resize:vertical; }
+    input[type=checkbox] { display:inline-block; width:22px; min-height:22px; height:22px; vertical-align:middle; margin:0 6px 0 0; accent-color:var(--green); }
+    .check { display:flex; align-items:flex-start; gap:5px; margin:6px 0; font-size:.88rem; font-weight:400; }
+    .check input { flex:0 0 22px; }
+    .table-wrap { width:100%; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; margin:6px 0 10px; font-size:14px; }
+    th, td { border:1px solid var(--line); padding:5px; text-align:left; vertical-align:top; }
+    th { color:#fff; background:var(--green); font-weight:700; }
+    td input, td select, td textarea { min-height:34px; margin:0; padding:5px; border:0; border-radius:0; }
+    td textarea { min-height:38px; }
+    .small { color:var(--muted); font-size:14px; }
+    .sketch { min-height:250px; font-family:monospace; }
+    .toolbar { position:sticky; top:0; z-index:2; display:flex; gap:8px; justify-content:flex-end; padding:10px; background:#edf1eef2; backdrop-filter:blur(8px); }
+    button { min-height:42px; padding:8px 13px; border:1px solid var(--green); border-radius:6px; background:var(--green); color:#fff; font-weight:700; }
+    button.secondary { background:#fff; color:var(--green); }
+    .route-tag { display:inline-block; padding:3px 8px; border-radius:12px; background:var(--pale); color:var(--green); font-size:14px; font-weight:700; }
+    .pagefoot { margin-top:12px; border-top:1px solid #d6ded9; padding-top:7px; color:var(--muted); font-size:14px; text-align:right; }
+    @media (max-width:620px) {
+      main { padding:8px; }
+      .sheet { padding:15px; border-radius:8px; }
+      .grid, .grid.three { grid-template-columns:1fr; }
+      .table-wrap { overflow:visible; }
+      table, tbody, tr, td { display:block; width:100%; }
+      thead { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
+      tbody tr { border:1px solid var(--line); border-radius:6px; padding:5px 8px; margin:8px 0; }
+      td { display:grid; grid-template-columns:minmax(110px,38%) 1fr; gap:7px; border:0; border-bottom:1px solid #e4e9e6; padding:5px 0; }
+      td:last-child { border-bottom:0; }
+      td::before { content:attr(data-label); font-weight:700; color:var(--green); }
+      td input, td select, td textarea { border:1px solid #c5d0c9; border-radius:4px; }
+      .toolbar { justify-content:stretch; }
+      .toolbar button { flex:1; }
+    }
+    @page { size:A4; margin:12mm; }
+    @media print {
+      body { background:#fff; font-size:9pt; }
+      main { max-width:none; margin:0; padding:0; }
+      .toolbar { display:none; }
+      .sheet { min-height:270mm; margin:0; padding:0; border:0; border-radius:0; box-shadow:none; page-break-after:always; break-after:page; }
+      .sheet:last-child { page-break-after:auto; break-after:auto; }
+      h1 { font-size:16pt; } h2 { font-size:13pt; } h3 { font-size:10pt; margin-top:8px; }
+      input, select, textarea { min-height:24px; padding:3px 4px; border-color:#819087; font-size:9pt; }
+      textarea { min-height:42px; }
+      .sketch { min-height:68mm; resize:none; }
+      .notice { padding:6px 8px; margin:7px 0; }
+      table { font-size:9pt; }
+      th, td { padding:3px; }
+      td input, td select, td textarea { min-height:22px; font-size:9pt; }
+      .pagefoot { position:relative; }
+      button { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar" aria-label="Worksheet actions">
+      <button type="button" class="secondary" id="clear">Clear saved entries</button>
+    <button type="button" onclick="window.print()">Print / Save PDF</button>
+  </div>
+  <main>
+    <section class="sheet">
+      <h1>VIT Corridor Survey</h1>
+      <p class="sub">Bibwewadi · Library to Canteen</p>
+      <p class="sub">Field worksheet · Complete the shared visit page and one page for each candidate route.</p>
+      <div class="notice"><strong>Retrospective notes to check, not verified facts:</strong> Route A was described as shorter and mostly exposed to sunlight; Route B as longer with covered walkways and trees. Trees and covered sections were noticed somewhere along the walk. No stairs, ramps, gates, or restricted-path obstacles were noticed, and no missing paths were noticed compared with OSM. These were impressions, not a systematic check. Confirm or correct every point on site. No geometry, distance, access permission, GPS accuracy, or shade amount is pre-filled.</div>
+      <p class="small">On a phone, entries are saved only in this browser on this device. They are not uploaded. Avoid names, student IDs, faces, or personal location histories. Use “Clear saved entries” when finished.</p>
+      <h2>Visit record</h2>
+      <div class="grid three">
+        <label class="field">Visit date and local time<input data-save></label>
+        <label class="field">Team codes (no names)<input data-save></label>
+        <label class="field">Weather and conditions<input data-save></label>
+      </div>
+      <label class="field">Campus permission to survey / evidence and conditions<input data-save></label>
+      <h2>Actual venue access points</h2>
+      <p class="small">Record the pedestrian entrance actually used. Do not use a building centroid as an entrance.</p>
+      <div class="grid">
+        <div>
+          <span class="route-tag">LIBRARY</span>
+          <label class="field">Door/access point and nearby landmark<textarea data-save></textarea></label>
+          <label class="field">Junction ID (assign after observing)<input data-save></label>
+          <label class="field">Coordinate [longitude, latitude], reported accuracy (m), fix time<input data-save></label>
+          <label class="field">Permission for intended users and evidence<input data-save></label>
+          <label class="field">OSM element reference and observed difference, if any<input data-save></label>
+        </div>
+        <div>
+          <span class="route-tag">CANTEEN</span>
+          <label class="field">Door/access point and nearby landmark<textarea data-save></textarea></label>
+          <label class="field">Junction ID (assign after observing)<input data-save></label>
+          <label class="field">Coordinate [longitude, latitude], reported accuracy (m), fix time<input data-save></label>
+          <label class="field">Permission for intended users and evidence<input data-save></label>
+          <label class="field">OSM element reference and observed difference, if any<input data-save></label>
+        </div>
+      </div>
+      <h2>GPS tracks and evidence log</h2>
+      <div class="table-wrap"><table><thead><tr><th>Track/evidence ID</th><th>Route and direction</th><th>Device/app</th><th>Raw file name</th><th>Accuracy reported (m), time/gaps</th><th>Obstruction/notes</th></tr></thead><tbody>
+      <tr><td data-label="Track/evidence ID"><input data-save></td><td data-label="Route and direction"><input data-save></td><td data-label="Device/app"><input data-save></td><td data-label="Raw file name"><input data-save></td><td data-label="Accuracy, time/gaps"><input data-save></td><td data-label="Obstruction/notes"><input data-save></td></tr>
+      <tr><td data-label="Track/evidence ID"><input data-save></td><td data-label="Route and direction"><input data-save></td><td data-label="Device/app"><input data-save></td><td data-label="Raw file name"><input data-save></td><td data-label="Accuracy, time/gaps"><input data-save></td><td data-label="Obstruction/notes"><input data-save></td></tr>
+      <tr><td data-label="Track/evidence ID"><input data-save></td><td data-label="Route and direction"><input data-save></td><td data-label="Device/app"><input data-save></td><td data-label="Raw file name"><input data-save></td><td data-label="Accuracy, time/gaps"><input data-save></td><td data-label="Obstruction/notes"><input data-save></td></tr>
+      </tbody></table></div>
+      <p class="small">Record accuracy exactly as the device reports it; use “not reported” when unavailable. Keep raw tracks unchanged and turn snap-to-road off. A location fix does not prove a path connection.</p>
+      <h2>GPS accuracy decision aid</h2>
+      <p class="small"><strong>≤ 5 m:</strong> preferred for a stationary junction/endpoint if it agrees with the feature and repeat observation. <strong>&gt; 5 to 10 m:</strong> conditional; require landmark and repeat/second-device support. <strong>&gt; 10 m, missing or unstable:</strong> do not use alone for a narrow path, endpoint, or junction; recollect. These are project acceptance bands, not a phone-GPS guarantee.</p>
+      <div class="pagefoot">ShadeRoute · VIT Bibwewadi · Shared visit record</div>
+    </section>
+
+    <section class="sheet route-sheet" data-route="A">
+      <h2><span class="route-tag">ROUTE A</span> Candidate path record</h2>
+      <div class="notice"><strong>Planning hypothesis only:</strong> previously described as shorter and mostly exposed to sunlight. Confirm or correct on site. This label is not a stable path ID or an accepted route.</div>
+      <div class="grid three">
+        <label class="field">Stable route ID (assign later)<input data-save></label><label class="field">Start endpoint / junction<input data-save></label><label class="field">End endpoint / junction<input data-save></label>
+      </div>
+      <div class="grid three"><label class="field">Walk date/time and direction<input data-save></label><label class="field">Track IDs / raw file references<input data-save></label><label class="field">Device(s), reported accuracy and gaps<input data-save></label></div>
+      <p class="small">Walk and record this option in both directions. Split path segments at every real junction, crossing, access change, or material change. Add continuation rows if needed.</p>
+      <h3>Path sequence and junctions</h3>
+      <div class="table-wrap"><table><thead><tr><th>Seq/path ID</th><th>From → to junction IDs</th><th>Type / surface / measured width</th><th>Student access? evidence/conditions</th><th>GPS accuracy / track ref.</th><th>Stairs, ramp, crossing, barrier, level</th></tr></thead><tbody>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      </tbody></table></div>
+      <h3>Covered sections, trees, and observed shade</h3>
+      <div class="grid"><label class="field">Segment/junction reference; covered section or tree actually seen<textarea data-save></textarea></label><label class="field">Shade observed? Describe location, visit time and sky conditions; evidence/limits<textarea data-save></textarea></label></div>
+      <p class="small">Do not estimate shade percentage or temperature. A tree point does not define canopy extent. Shade remains unknown where evidence is insufficient.</p>
+      <h3>Student access and OSM comparison</h3>
+      <div class="grid"><label class="field">Access: permitted / restricted / unclear / unknown. Who or what confirmed it? Conditions?<textarea data-save></textarea></label><label class="field">OSM element ID and field difference observed; evidence or reason no comparison was possible<textarea data-save></textarea></label></div>
+      <label class="field">Uncertainty and follow-up needed<textarea data-save></textarea></label>
+      <p class="small">Being able to walk a segment or noticing no gate is not permission evidence. Do not mark it routeable unless permission covers intended users and it is independently verified.</p>
+      <h3>Route A sketch</h3>
+      <p class="small">Show north/landmarks, direction, actual entrances, junction IDs, segment order, trees/covered portions, barriers and OSM differences. Label approximate features.</p>
+      <textarea class="sketch" aria-label="Route A sketch notes" placeholder="Sketch the route here on paper, or describe the drawing/landmarks here on a phone. Keep the raw field sketch as evidence."></textarea>
+      <div class="pagefoot">ShadeRoute · VIT Bibwewadi · Route A</div>
+    </section>
+
+    <section class="sheet route-sheet" data-route="B">
+      <h2><span class="route-tag">ROUTE B</span> Candidate path record</h2>
+      <div class="notice"><strong>Planning hypothesis only:</strong> previously described as longer and including covered walkways and trees. Confirm or correct on site. This label is not a stable path ID or an accepted route.</div>
+      <div class="grid three">
+        <label class="field">Stable route ID (assign later)<input data-save></label><label class="field">Start endpoint / junction<input data-save></label><label class="field">End endpoint / junction<input data-save></label>
+      </div>
+      <div class="grid three"><label class="field">Walk date/time and direction<input data-save></label><label class="field">Track IDs / raw file references<input data-save></label><label class="field">Device(s), reported accuracy and gaps<input data-save></label></div>
+      <p class="small">Walk and record this option in both directions. Split path segments at every real junction, crossing, access change, or material change. Add continuation rows if needed.</p>
+      <h3>Path sequence and junctions</h3>
+      <div class="table-wrap"><table><thead><tr><th>Seq/path ID</th><th>From → to junction IDs</th><th>Type / surface / measured width</th><th>Student access? evidence/conditions</th><th>GPS accuracy / track ref.</th><th>Stairs, ramp, crossing, barrier, level</th></tr></thead><tbody>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Seq/path ID"><input data-save></td><td data-label="From → to junction IDs"><input data-save></td><td data-label="Type / surface / measured width"><textarea data-save></textarea></td><td data-label="Student access? evidence"><textarea data-save></textarea></td><td data-label="GPS accuracy / track"><input data-save></td><td data-label="Features/level"><textarea data-save></textarea></td></tr>
+      </tbody></table></div>
+      <h3>Covered sections, trees, and observed shade</h3>
+      <div class="grid"><label class="field">Segment/junction reference; covered section or tree actually seen<textarea data-save></textarea></label><label class="field">Shade observed? Describe location, visit time and sky conditions; evidence/limits<textarea data-save></textarea></label></div>
+      <p class="small">Do not estimate shade percentage or temperature. A tree point does not define canopy extent. Shade remains unknown where evidence is insufficient.</p>
+      <h3>Student access and OSM comparison</h3>
+      <div class="grid"><label class="field">Access: permitted / restricted / unclear / unknown. Who or what confirmed it? Conditions?<textarea data-save></textarea></label><label class="field">OSM element ID and field difference observed; evidence or reason no comparison was possible<textarea data-save></textarea></label></div>
+      <label class="field">Uncertainty and follow-up needed<textarea data-save></textarea></label>
+      <p class="small">Being able to walk a segment or noticing no gate is not permission evidence. Do not mark it routeable unless permission covers intended users and it is independently verified.</p>
+      <h3>Route B sketch</h3>
+      <p class="small">Show north/landmarks, direction, actual entrances, junction IDs, segment order, trees/covered portions, barriers and OSM differences. Label approximate features.</p>
+      <textarea class="sketch" aria-label="Route B sketch notes" placeholder="Sketch the route here on paper, or describe the drawing/landmarks here on a phone. Keep the raw field sketch as evidence."></textarea>
+      <div class="pagefoot">ShadeRoute · VIT Bibwewadi · Route B</div>
+    </section>
+
+    <section class="sheet">
+      <h2>Independent Route Verification and Decision</h2>
+      <p class="sub">A second person should walk each candidate route independently using the notes or candidate graph, without turn-by-turn guidance from the recorder.</p>
+      <div class="grid"><label class="field">Checker team code / date / time<input data-save></label><label class="field">Route checked<select data-save><option></option><option>A</option><option>B</option><option>Both</option></select></label></div>
+      <h3>Second-person re-walk checklist</h3>
+      <label class="check"><input type="checkbox" data-save>Walked the full route in both directions without turn-by-turn guidance.</label>
+      <label class="check"><input type="checkbox" data-save>Confirmed actual Library and Canteen access points match the records and intended user group.</label>
+      <label class="check"><input type="checkbox" data-save>Every segment is physically traversable; barriers, closures, steps/ramps, crossings and surface notes match.</label>
+      <label class="check"><input type="checkbox" data-save>Every junction was checked; paths actually meet at the recorded level (no false crossing/join).</label>
+      <label class="check"><input type="checkbox" data-save>Connections use a shared junction ID only when field-confirmed; no proximity/snap joins.</label>
+      <label class="check"><input type="checkbox" data-save>Permission evidence covers every segment and intended users; unknown/restricted paths are excluded.</label>
+      <label class="check"><input type="checkbox" data-save>Track references open and correspond to the walked route; GPS gaps/drift are documented.</label>
+      <label class="check"><input type="checkbox" data-save>Tree/covered/shade observations include location and visit conditions; no unsupported quantities.</label>
+      <label class="check"><input type="checkbox" data-save>OSM differences cite element IDs and field evidence; original OSM snapshot remains unchanged.</label>
+      <label class="check"><input type="checkbox" data-save>Route can be followed end-to-end from the sequence; route dead ends/missed branches are resolved.</label>
+      <h3>Issues and rechecks</h3>
+      <div class="table-wrap"><table><thead><tr><th>Issue ID / route / segment or junction</th><th>Checker finding</th><th>Evidence or correction needed</th><th>Recheck result/date</th></tr></thead><tbody>
+      <tr><td data-label="Issue ID"><input data-save></td><td data-label="Finding"><textarea data-save></textarea></td><td data-label="Needed"><textarea data-save></textarea></td><td data-label="Recheck"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Issue ID"><input data-save></td><td data-label="Finding"><textarea data-save></textarea></td><td data-label="Needed"><textarea data-save></textarea></td><td data-label="Recheck"><textarea data-save></textarea></td></tr>
+      <tr><td data-label="Issue ID"><input data-save></td><td data-label="Finding"><textarea data-save></textarea></td><td data-label="Needed"><textarea data-save></textarea></td><td data-label="Recheck"><textarea data-save></textarea></td></tr>
+      </tbody></table></div>
+      <h3>Qualitative comparison after verification</h3>
+      <div class="grid"><label class="field">Which route is actually shorter? Evidence (do not infer without measured geometry).<textarea data-save></textarea></label><label class="field">Where were covered/tree sections observed? Segment IDs, time and limitations.<textarea data-save></textarea></label></div>
+      <label class="field">Shade status and evidence — leave unknown if unsupported<textarea data-save></textarea></label>
+      <h3>Survey outcome</h3>
+      <label class="check"><input type="checkbox" data-save>Needs more fieldwork</label>
+      <label class="check"><input type="checkbox" data-save>Candidate only</label>
+      <label class="check"><input type="checkbox" data-save>Ready for graph review (not yet published as routeable)</label>
+      <div class="grid"><label class="field">Route A verified by / date<input data-save></label><label class="field">Route B verified by / date<input data-save></label></div>
+      <label class="field">Reviewer and remaining limitations<textarea data-save></textarea></label>
+      <div class="notice"><strong>Routing acceptance needs:</strong> stable path and junction IDs, both endpoints in one connected component after access/verification filters, explicit permission evidence, and an independent re-walk. This sheet alone does not prove connectivity. Shade remains unknown where evidence is insufficient.</div>
+      <div class="pagefoot">ShadeRoute · VIT Bibwewadi · Independent verification</div>
+    </section>
+  </main>
+  <script>
+    (() => {
+      const key = 'shaderoute-vit-corridor-sheet-v1';
+      const fields = [...document.querySelectorAll('[data-save]')];
+      try {
+        const saved = JSON.parse(localStorage.getItem(key) || '[]');
+        fields.forEach((field, i) => {
+          const value = saved[i];
+          if (value !== undefined) field.type === 'checkbox' ? field.checked = !!value : field.value = value;
+        });
+      } catch (_) {}
+      const save = () => {
+        try { localStorage.setItem(key, JSON.stringify(fields.map(f => f.type === 'checkbox' ? f.checked : f.value))); }
+        catch (_) {}
+      };
+      fields.forEach(field => field.addEventListener('input', save));
+      fields.forEach(field => field.addEventListener('change', save));
+      document.getElementById('clear').addEventListener('click', () => {
+        if (!window.confirm('Clear this worksheet’s entries saved in this browser?')) return;
+        localStorage.removeItem(key); location.reload();
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "source": "OpenStreetMap API map endpoint",
+  "sourceUrl": "https://api.openstreetmap.org/api/0.6/map?bbox=73.864,18.4615,73.871,18.4675",
+  "retrievedAtUtc": "2026-11-17T19:28:50.013197+00:00",
+  "bboxWgs84": {
+    "west": 73.864,
+    "south": 18.4615,
+    "east": 73.871,
+    "north": 18.4675
+  },
+  "elementCounts": {
+    "nodes": 3363,
+    "ways": 627,
+    "relations": 6
+  },
+  "sha256": "E81081DEF82B225578C901A5823E84D6FFE1D2AFDFACA710CD0F5A0803BC486E",
+  "license": "Open Database License (ODbL) 1.0",
+  "attribution": "\u00a9 OpenStreetMap contributors",
+  "attributionUrl": "https://www.openstreetmap.org/copyright",
+  "notes": [
+    "Raw API response for Chintamani Nagar Part 1 & Bibwewadi surrounding pedestrian streets.",
+    "Preserved for network routing and environmental feature analysis."
+  ]
+}

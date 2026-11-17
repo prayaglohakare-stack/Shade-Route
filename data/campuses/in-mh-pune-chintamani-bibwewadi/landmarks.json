@@ -1,0 +1,114 @@
+[
+  {
+    "id": "vit-main-gate",
+    "name": "VIT Pune \u2014 Main Gate",
+    "category": "Education / Campus Entrance",
+    "description": "Primary student entrance to Vishwakarma Institute of Technology.",
+    "coordinates": [
+      73.86795,
+      18.46368
+    ],
+    "nearestNodeId": "node-4332244859",
+    "snapDistanceMetres": 53.1,
+    "snappedCoordinates": [
+      73.8677105,
+      18.4632597
+    ]
+  },
+  {
+    "id": "chintamani-garden",
+    "name": "Chintamani Nagar Public Park",
+    "category": "Green Space / Recreation",
+    "description": "Landscaped community park surrounded by residential societies.",
+    "coordinates": [
+      73.8658,
+      18.4652
+    ],
+    "nearestNodeId": "node-2235086374",
+    "snapDistanceMetres": 16.6,
+    "snappedCoordinates": [
+      73.8657203,
+      18.4650712
+    ]
+  },
+  {
+    "id": "shri-vimalnath-temple",
+    "name": "Shri Vimalnath Swami Jain Temple",
+    "category": "Culture / Landmark",
+    "description": "Historic Jain temple at northern residential corridor.",
+    "coordinates": [
+      73.86482,
+      18.46745
+    ],
+    "nearestNodeId": "node-10230350571",
+    "snapDistanceMetres": 41.7,
+    "snappedCoordinates": [
+      73.8644622,
+      18.4672897
+    ]
+  },
+  {
+    "id": "shree-j-hospital",
+    "name": "Shree J. Hospital",
+    "category": "Healthcare / Civic",
+    "description": "Community healthcare facility along Swami Vivekanand Marg corridor.",
+    "coordinates": [
+      73.86419,
+      18.4653
+    ],
+    "nearestNodeId": "node-7146481726",
+    "snapDistanceMetres": 39.1,
+    "snappedCoordinates": [
+      73.8645371,
+      18.4654236
+    ]
+  },
+  {
+    "id": "lake-town-junction",
+    "name": "Lake Town Road Junction",
+    "category": "Transit / Crossroad",
+    "description": "Southern transit junction connecting Bibwewadi main road to Upper Indira Nagar.",
+    "coordinates": [
+      73.86452,
+      18.4619
+    ],
+    "nearestNodeId": "node-10223133167",
+    "snapDistanceMetres": 75.3,
+    "snappedCoordinates": [
+      73.8651445,
+      18.4615724
+    ]
+  },
+  {
+    "id": "anandi-polyclinic",
+    "name": "Anandi PolyClinic",
+    "category": "Healthcare",
+    "description": "Local clinic serving residents near Chintamani Nagar residential lanes.",
+    "coordinates": [
+      73.86616,
+      18.46307
+    ],
+    "nearestNodeId": "node-4340688578",
+    "snapDistanceMetres": 24.2,
+    "snappedCoordinates": [
+      73.8662003,
+      18.4632841
+    ]
+  },
+  {
+    "id": "vit-library",
+    "name": "VIT Central Library Entrance",
+    "category": "Campus Facility",
+    "description": "Campus library and study centre access corridor.",
+    "coordinates": [
+      73.86847,
+      18.46349
+    ],
+    "nearestNodeId": "node-2235086352",
+    "snapDistanceMetres": 49.5,
+    "snappedCoordinates": [
+      73.8689391,
+      18.4634742
+    ]
+  }
+]

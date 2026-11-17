@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "campusId": "in-mh-pune-chintamani-bibwewadi",
+  "dataRevision": 2,
+  "publishedAt": "2026-11-17T19:44:07.894367+00:00",
+  "campus": {
+    "name": "Chintamani Nagar \u2014 Bibwewadi Pedestrian Pilot",
+    "address": "Chintamani Nagar Part 1 & Bibwewadi Neighbourhood, Pune, Maharashtra 411037",
+    "timezone": "Asia/Kolkata",
+    "center": [
+      73.8672,
+      18.4645
+    ],
+    "bounds": [
+      [
+        73.864,
+        18.4615
+      ],
+      [
+        73.871,
+        18.4675
+      ]
+    ]
+  },
+  "files": {
+    "network": "network.json",
+    "shade": "shade.json"
+  },
+  "sources": [
+    {
+      "sourceId": "pmc-tree-census-2019",
+      "type": "other",
+      "name": "Pune Municipal Corporation Tree Census 2019",
+      "capturedAt": "2019-08-31T00:00:00+05:30",
+      "license": "Open Data Commons / Pune Smart City Civic Open Data",
+      "attribution": "Pune Municipal Corporation (PMC) & Open Data Pune",
+      "url": "https://data.opencity.in/dataset/pune-tree-census-2019"
+    },
+    {
+      "sourceId": "osm-bibwewadi-2026",
+      "type": "osm",
+      "name": "OpenStreetMap Bounded Extract",
+      "capturedAt": "2026-11-18T00:00:00Z",
+      "license": "Open Database License (ODbL) 1.0",
+      "attribution": "\u00a9 OpenStreetMap contributors",
+      "url": "https://www.openstreetmap.org/copyright"
+    },
+    {
+      "sourceId": "shaderoute-combined-shade-model-v2",
+      "type": "other",
+      "name": "ShadeRoute Combined Building & Canopy Shade Model",
+      "capturedAt": "2026-11-18T00:00:00+05:30",
+      "license": "MIT",
+      "attribution": "ShadeRoute Project",
+      "url": "https://github.com/shaderoute/shaderoute"
+    }
+  ],
+  "limitations": [
+    "Building heights are classified using an explicit 5-tier confidence taxonomy; 376 footprints use calibrated architectural typologies and carry explicit uncertainty flags.",
+    "Tree coordinates and canopy diameters originate from the 2019 PMC Tree Census and may not capture recent changes.",
+    "Combined shade represents the non-double-counted mathematical union of building-cast shadows, tree crowns, and covered walkways under modelled solar conditions.",
+    "Shade is not air temperature; calculations represent potential line-of-sight solar radiation protection."
+  ]
+}

@@ -3,10 +3,18 @@
   "campuses": [
     {
       "campusId": "in-mh-pune-vit-bibwewadi",
-      "name": "Vishwakarma Institute of Technology — Bibwewadi",
+      "name": "Vishwakarma Institute of Technology \u2014 Bibwewadi",
       "address": "666, Upper Indira Nagar, Bibwewadi, Pune, Maharashtra 411037",
       "timezone": "Asia/Kolkata",
       "dataStatus": "pending-validation"
+    },
+    {
+      "campusId": "in-mh-pune-chintamani-bibwewadi",
+      "name": "Chintamani Nagar \u2014 Bibwewadi Pedestrian Pilot",
+      "address": "Chintamani Nagar Part 1 & Bibwewadi Neighbourhood, Pune, Maharashtra 411037",
+      "timezone": "Asia/Kolkata",
+      "dataStatus": "published",
+      "dataRevision": 2
     }
   ]
 }
