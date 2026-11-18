@@ -6,8 +6,12 @@ export const DEFAULT_WALKING_SPEED_MPS = 1.25; // 1.25 m/s ≈ 4.5 km/h standard
 export type RouteMode = 'shortest' | 'balanced' | 'more-canopy';
 
 export interface RouteMetrics {
+  sunMinutes: number; // Headline metric: minutes in direct sun (1 decimal)
   distanceMetres: number;
   walkingMinutes: number;
+  sunMinutesSavedVsShortest: number; // Minutes in direct sun saved vs shortest route
+  detourDistanceMetres: number; // Extra metres vs shortest route
+  detourPercentage: number; // % longer than shortest route
   combinedShadeMetres: number;
   combinedShadePercentage: number;
   buildingMetres: number;
@@ -22,7 +26,6 @@ export interface RouteMetrics {
   unknownPercentage: number;
   uncertainMetres: number;
   uncertainPercentage: number;
-  detourPercentage: number; // % longer than shortest route
 }
 
 export interface ComputedRoute {
@@ -192,13 +195,89 @@ export function interpolateSlotShade(
 }
 
 /**
+ * Efficient Min-Binary Heap implementation for Dijkstra and Constrained Shortest Path search.
+ */
+export class MinHeap<T> {
+  private data: Array<{ key: number; value: T }> = [];
+
+  get size(): number {
+    return this.data.length;
+  }
+
+  isEmpty(): boolean {
+    return this.data.length === 0;
+  }
+
+  push(key: number, value: T): void {
+    this.data.push({ key, value });
+    this.bubbleUp(this.data.length - 1);
+  }
+
+  pop(): { key: number; value: T } | undefined {
+    if (this.data.length === 0) return undefined;
+    const top = this.data[0];
+    const bottom = this.data.pop()!;
+    if (this.data.length > 0) {
+      this.data[0] = bottom;
+      this.bubbleDown(0);
+    }
+    return top;
+  }
+
+  peek(): { key: number; value: T } | undefined {
+    return this.data[0];
+  }
+
+  private bubbleUp(idx: number): void {
+    while (idx > 0) {
+      const parentIdx = Math.floor((idx - 1) / 2);
+      if (this.data[idx].key < this.data[parentIdx].key) {
+        const tmp = this.data[idx];
+        this.data[idx] = this.data[parentIdx];
+        this.data[parentIdx] = tmp;
+        idx = parentIdx;
+      } else {
+        break;
+      }
+    }
+  }
+
+  private bubbleDown(idx: number): void {
+    const len = this.data.length;
+    while (true) {
+      const left = 2 * idx + 1;
+      const right = 2 * idx + 2;
+      let smallest = idx;
+
+      if (left < len && this.data[left].key < this.data[smallest].key) {
+        smallest = left;
+      }
+      if (right < len && this.data[right].key < this.data[smallest].key) {
+        smallest = right;
+      }
+
+      if (smallest !== idx) {
+        const tmp = this.data[idx];
+        this.data[idx] = this.data[smallest];
+        this.data[smallest] = tmp;
+        idx = smallest;
+      } else {
+        break;
+      }
+    }
+  }
+}
+
+/**
  * Calculates time-progressed combined metrics for an edge sequence.
  * Evaluates each edge at the estimated timestamp the pedestrian reaches it!
+ * Headline metric: minutes in direct sun (sum over edges of length * (1 - shade) / walking speed).
  */
-function calculateRouteMetrics(
+export function calculateRouteMetrics(
   edges: CampusEdge[],
   shadeMap: Map<string, ShadeRecord>,
   shortestDistance: number,
+  shortestSunMinutes: number,
   departureHour: number,
   departureMinute: number,
   walkingSpeedMps = DEFAULT_WALKING_SPEED_MPS,
@@ -212,6 +291,7 @@ function calculateRouteMetrics(
   let exposedDist = 0;
   let unknownDist = 0;
   let uncertainDist = 0;
+  let totalSunSeconds = 0;
 
   let elapsedSeconds = 0;
 
@@ -231,25 +311,40 @@ function calculateRouteMetrics(
       coveredDist += len;
       combinedShadeDist += len;
     } else {
-      combinedShadeDist += len * dynamicShade.combinedFrac;
+      const edgeCombinedShade = len * dynamicShade.combinedFrac;
+      combinedShadeDist += edgeCombinedShade;
       buildingDist += len * dynamicShade.bldgFrac;
       canopyDist += len * dynamicShade.treeFrac;
       unknownDist += len * dynamicShade.unknownFrac;
-      exposedDist += len * Math.max(0.0, 1.0 - dynamicShade.combinedFrac - dynamicShade.unknownFrac);
+      // Never count unknown as exposed
+      const edgeExposed = len * Math.max(0.0, 1.0 - dynamicShade.combinedFrac - dynamicShade.unknownFrac);
+      exposedDist += edgeExposed;
       uncertainDist += len * dynamicShade.uncertainFrac;
+      totalSunSeconds += edgeExposed / walkingSpeedMps;
     }
 
     elapsedSeconds += len / walkingSpeedMps;
   }
 
   const distSafe = totalDist > 0 ? totalDist : 1;
+  const detourDistanceMetres = shortestDistance > 0 && totalDist > shortestDistance
+    ? Math.max(0, Math.round(totalDist - shortestDistance))
+    : 0;
   const detourPercentage = shortestDistance > 0 && totalDist > shortestDistance
     ? Math.round(((totalDist - shortestDistance) / shortestDistance) * 1000) / 10
     : 0;
+  const sunMinutes = Math.round((totalSunSeconds / 60) * 10) / 10;
+  const sunMinutesSavedVsShortest = shortestSunMinutes > 0
+    ? Math.round(Math.max(0, shortestSunMinutes - sunMinutes) * 10) / 10
+    : 0;
 
   return {
+    sunMinutes,
     distanceMetres: Math.round(totalDist),
     walkingMinutes: Math.round((totalDist / walkingSpeedMps / 60) * 10) / 10,
+    sunMinutesSavedVsShortest,
+    detourDistanceMetres,
+    detourPercentage,
     combinedShadeMetres: Math.round(combinedShadeDist),
     combinedShadePercentage: Math.round((combinedShadeDist / distSafe) * 100),
     buildingMetres: Math.round(buildingDist),
@@ -264,7 +359,6 @@ function calculateRouteMetrics(
     unknownPercentage: Math.round((unknownDist / distSafe) * 100),
     uncertainMetres: Math.round(uncertainDist),
     uncertainPercentage: Math.round((uncertainDist / distSafe) * 100),
-    detourPercentage,
   };
 }
 
@@ -287,25 +381,14 @@ function reconstructPolyline(nodeIds: string[], edges: CampusEdge[]): Coordinate
   return coords;
 }
 
-/**
- * Runs Dijkstra shortest-path with edge weights reflecting combined built and natural shade,
- * dynamically interpolated at the estimated arrival time for each edge.
- */
-function runDijkstra(
-  network: RouteNetwork,
-  originNodeId: string,
-  destinationNodeId: string,
-  shadeMap: Map<string, ShadeRecord>,
-  mode: RouteMode,
-  departureHour: number,
-  departureMinute: number,
-  walkingSpeedMps = DEFAULT_WALKING_SPEED_MPS,
-  dateInput: Date | string = '2026-11-18',
-): { nodeIds: string[]; edges: CampusEdge[] } | null {
-  const nodeMap = new Map<string, CampusNode>(network.nodes.map((n) => [n.nodeId, n]));
-  if (!nodeMap.has(originNodeId) || !nodeMap.has(destinationNodeId)) return null;
+interface AdjacencyEdge {
+  next: string;
+  edge: CampusEdge;
+  len: number;
+}
 
-  const adjacency = new Map<string, Array<{ next: string; edge: CampusEdge; len: number }>>();
+function buildAdjacency(network: RouteNetwork): Map<string, AdjacencyEdge[]> {
+  const adjacency = new Map<string, AdjacencyEdge[]>();
   for (const n of network.nodes) adjacency.set(n.nodeId, []);
 
   for (const edge of network.edges) {
@@ -316,63 +399,45 @@ function runDijkstra(
     adjacency.get(edge.fromNodeId)?.push({ next: edge.toNodeId, edge, len });
     adjacency.get(edge.toNodeId)?.push({ next: edge.fromNodeId, edge, len });
   }
+  return adjacency;
+}
 
+/**
+ * Runs Shortest-Distance Dijkstra with a binary-heap implementation.
+ */
+function runShortestDistance(
+  network: RouteNetwork,
+  originNodeId: string,
+  destinationNodeId: string,
+): { nodeIds: string[]; edges: CampusEdge[]; distanceMetres: number } | null {
+  const nodeMap = new Map<string, CampusNode>(network.nodes.map((n) => [n.nodeId, n]));
+  if (!nodeMap.has(originNodeId) || !nodeMap.has(destinationNodeId)) return null;
+
+  const adjacency = buildAdjacency(network);
   const distances = new Map<string, number>([[originNodeId, 0]]);
-  const distanceMeters = new Map<string, number>([[originNodeId, 0]]);
   const previous = new Map<string, { nodeId: string; edge: CampusEdge }>();
-  const unvisited = new Set<string>(nodeMap.keys());
+  const heap = new MinHeap<string>();
+  heap.push(0, originNodeId);
 
-  while (unvisited.size > 0) {
-    let current: string | undefined;
-    let bestDist = Number.POSITIVE_INFINITY;
+  while (!heap.isEmpty()) {
+    const item = heap.pop()!;
+    const current = item.value;
+    const currentDist = item.key;
 
-    for (const nid of unvisited) {
-      const d = distances.get(nid) ?? Number.POSITIVE_INFINITY;
-      if (d < bestDist) {
-        bestDist = d;
-        current = nid;
-      }
-    }
-
-    if (!current || !Number.isFinite(bestDist)) break;
+    if (currentDist > (distances.get(current) ?? Number.POSITIVE_INFINITY)) continue;
     if (current === destinationNodeId) break;
 
-    unvisited.delete(current);
-    const currentDistM = distanceMeters.get(current) ?? 0;
-    const currentArrivalMin = (departureHour * 60 + departureMinute) + (currentDistM / walkingSpeedMps) / 60;
-
     for (const { next, edge, len } of adjacency.get(current) ?? []) {
-      if (!unvisited.has(next)) continue;
-
-      const isCovered = edge.pathClass === 'covered-walkway';
-      const shade = shadeMap.get(edge.edgeId);
-      const dynamicShade = interpolateSlotShade(shade, currentArrivalMin, dateInput);
-
-      const combinedFrac = isCovered ? 1.0 : dynamicShade.combinedFrac;
-      const shadedLen = len * combinedFrac;
-      const exposedLen = Math.max(0.0, len * (1.0 - combinedFrac - dynamicShade.unknownFrac));
-
-      let weight = len;
-      if (mode === 'shortest') {
-        weight = len;
-      } else if (mode === 'balanced') {
-        weight = exposedLen + 0.65 * shadedLen;
-      } else if (mode === 'more-canopy') {
-        weight = exposedLen + 0.25 * shadedLen;
-      }
-
-      const candidate = bestDist + weight;
-      if (candidate < (distances.get(next) ?? Number.POSITIVE_INFINITY)) {
-        distances.set(next, candidate);
-        distanceMeters.set(next, currentDistM + len);
+      const candidateDist = currentDist + len;
+      if (candidateDist < (distances.get(next) ?? Number.POSITIVE_INFINITY)) {
+        distances.set(next, candidateDist);
         previous.set(next, { nodeId: current, edge });
+        heap.push(candidateDist, next);
       }
     }
   }
 
-  if (!Number.isFinite(distances.get(destinationNodeId) ?? Number.POSITIVE_INFINITY)) {
-    return null;
-  }
+  if (!distances.has(destinationNodeId)) return null;
 
   const nodeIds = [destinationNodeId];
   const edges: CampusEdge[] = [];
@@ -384,6 +449,227 @@ function runDijkstra(
     edges.unshift(step.edge);
     cursor = step.nodeId;
     nodeIds.unshift(cursor);
+  }
+
+  return { nodeIds, edges, distanceMetres: distances.get(destinationNodeId)! };
+}
+
+interface PathState {
+  nodeId: string;
+  distMeters: number;
+  cost: number;
+  edge: CampusEdge | null;
+  parent: PathState | null;
+}
+
+/**
+ * Runs Constrained Search for the Cooler Route:
+ * Minimises sun-minutes (direct sun exposure) subject to hard distance detour constraint <= 25% (dist <= 1.25 * shortestDistance).
+ * Uses a binary min-heap with Pareto-frontier domination pruning.
+ */
+function runConstrainedCoolerRoute(
+  network: RouteNetwork,
+  originNodeId: string,
+  destinationNodeId: string,
+  shadeMap: Map<string, ShadeRecord>,
+  shortestDistance: number,
+  departureHour: number,
+  departureMinute: number,
+  walkingSpeedMps = DEFAULT_WALKING_SPEED_MPS,
+  dateInput: Date | string = '2026-11-18',
+): { nodeIds: string[]; edges: CampusEdge[] } | null {
+  const maxDistanceMetres = shortestDistance * 1.25; // Hard <= 25% detour constraint
+  const adjacency = buildAdjacency(network);
+
+  const heap = new MinHeap<PathState>();
+  const rootState: PathState = {
+    nodeId: originNodeId,
+    distMeters: 0,
+    cost: 0, // sunSeconds
+    edge: null,
+    parent: null,
+  };
+  heap.push(0, rootState);
+
+  // Pareto frontier per node: list of [cost, distMeters] non-dominated labels
+  const paretoLabels = new Map<string, Array<{ cost: number; dist: number }>>();
+  paretoLabels.set(originNodeId, [{ cost: 0, dist: 0 }]);
+
+  let bestDestState: PathState | null = null;
+  let iterations = 0;
+  const MAX_ITERATIONS = 20000;
+
+  while (!heap.isEmpty() && iterations++ < MAX_ITERATIONS) {
+    const top = heap.pop()!;
+    const state = top.value;
+
+    if (state.distMeters > maxDistanceMetres) continue;
+
+    if (state.nodeId === destinationNodeId) {
+      bestDestState = state;
+      break; // First arrival at destination from sun-ordered heap is optimal under the constraint
+    }
+
+    const currentArrivalMin = departureHour * 60 + departureMinute + (state.distMeters / walkingSpeedMps) / 60;
+
+    for (const { next, edge, len } of adjacency.get(state.nodeId) ?? []) {
+      if (state.parent && state.parent.nodeId === next) continue; // avoid 2-node cycles
+
+      const newDist = state.distMeters + len;
+      if (newDist > maxDistanceMetres) continue; // Prune if exceeds 25% detour
+
+      const isCovered = edge.pathClass === 'covered-walkway';
+      const shade = shadeMap.get(edge.edgeId);
+      const dynamicShade = interpolateSlotShade(shade, currentArrivalMin, dateInput);
+
+      const combinedFrac = isCovered ? 1.0 : dynamicShade.combinedFrac;
+      const exposedFrac = Math.max(0.0, 1.0 - combinedFrac - dynamicShade.unknownFrac);
+      const edgeSunSeconds = (len * exposedFrac) / walkingSpeedMps;
+      const newCost = state.cost + edgeSunSeconds;
+
+      // Pareto domination check: reject if another label at next has both <= cost and <= dist
+      const labels = paretoLabels.get(next) ?? [];
+      let dominated = false;
+      for (const l of labels) {
+        if (l.cost <= newCost && l.dist <= newDist) {
+          dominated = true;
+          break;
+        }
+      }
+      if (dominated) continue;
+
+      // Filter out labels at next that are strictly dominated by this new label
+      const retained = labels.filter((l) => !(l.cost >= newCost && l.dist >= newDist));
+      retained.push({ cost: newCost, dist: newDist });
+      paretoLabels.set(next, retained);
+
+      const nextState: PathState = {
+        nodeId: next,
+        distMeters: newDist,
+        cost: newCost,
+        edge,
+        parent: state,
+      };
+      heap.push(newCost, nextState);
+    }
+  }
+
+  if (!bestDestState) return null;
+
+  const nodeIds = [destinationNodeId];
+  const edges: CampusEdge[] = [];
+  let curr: PathState | null = bestDestState;
+
+  while (curr && curr.parent) {
+    if (curr.edge) edges.unshift(curr.edge);
+    curr = curr.parent;
+    nodeIds.unshift(curr.nodeId);
+  }
+
+  return { nodeIds, edges };
+}
+
+/**
+ * Runs Constrained Search for Balanced Route:
+ * Weighted cost function: weight = exposedLen + 0.50 * shadedLen (50% discount for shade)
+ * subject to hard distance detour constraint <= 15% (dist <= 1.15 * shortestDistance).
+ */
+function runBalancedRoute(
+  network: RouteNetwork,
+  originNodeId: string,
+  destinationNodeId: string,
+  shadeMap: Map<string, ShadeRecord>,
+  shortestDistance: number,
+  departureHour: number,
+  departureMinute: number,
+  walkingSpeedMps = DEFAULT_WALKING_SPEED_MPS,
+  dateInput: Date | string = '2026-11-18',
+): { nodeIds: string[]; edges: CampusEdge[] } | null {
+  const maxDistanceMetres = shortestDistance * 1.15; // Hard <= 15% detour constraint
+  const adjacency = buildAdjacency(network);
+
+  const heap = new MinHeap<PathState>();
+  const rootState: PathState = {
+    nodeId: originNodeId,
+    distMeters: 0,
+    cost: 0,
+    edge: null,
+    parent: null,
+  };
+  heap.push(0, rootState);
+
+  const paretoLabels = new Map<string, Array<{ cost: number; dist: number }>>();
+  paretoLabels.set(originNodeId, [{ cost: 0, dist: 0 }]);
+
+  let bestDestState: PathState | null = null;
+  let iterations = 0;
+  const MAX_ITERATIONS = 20000;
+
+  while (!heap.isEmpty() && iterations++ < MAX_ITERATIONS) {
+    const top = heap.pop()!;
+    const state = top.value;
+
+    if (state.distMeters > maxDistanceMetres) continue;
+
+    if (state.nodeId === destinationNodeId) {
+      bestDestState = state;
+      break;
+    }
+
+    const currentArrivalMin = departureHour * 60 + departureMinute + (state.distMeters / walkingSpeedMps) / 60;
+
+    for (const { next, edge, len } of adjacency.get(state.nodeId) ?? []) {
+      if (state.parent && state.parent.nodeId === next) continue;
+
+      const newDist = state.distMeters + len;
+      if (newDist > maxDistanceMetres) continue;
+
+      const isCovered = edge.pathClass === 'covered-walkway';
+      const shade = shadeMap.get(edge.edgeId);
+      const dynamicShade = interpolateSlotShade(shade, currentArrivalMin, dateInput);
+
+      const combinedFrac = isCovered ? 1.0 : dynamicShade.combinedFrac;
+      const shadedLen = len * combinedFrac;
+      const exposedLen = Math.max(0.0, len * (1.0 - combinedFrac - dynamicShade.unknownFrac));
+      // Documented weight: exposedLen + 0.50 * shadedLen
+      const edgeWeight = exposedLen + 0.50 * shadedLen;
+      const newCost = state.cost + edgeWeight;
+
+      const labels = paretoLabels.get(next) ?? [];
+      let dominated = false;
+      for (const l of labels) {
+        if (l.cost <= newCost && l.dist <= newDist) {
+          dominated = true;
+          break;
+        }
+      }
+      if (dominated) continue;
+
+      const retained = labels.filter((l) => !(l.cost >= newCost && l.dist >= newDist));
+      retained.push({ cost: newCost, dist: newDist });
+      paretoLabels.set(next, retained);
+
+      const nextState: PathState = {
+        nodeId: next,
+        distMeters: newDist,
+        cost: newCost,
+        edge,
+        parent: state,
+      };
+      heap.push(newCost, nextState);
+    }
+  }
+
+  if (!bestDestState) return null;
+
+  const nodeIds = [destinationNodeId];
+  const edges: CampusEdge[] = [];
+  let curr: PathState | null = bestDestState;
+
+  while (curr && curr.parent) {
+    if (curr.edge) edges.unshift(curr.edge);
+    curr = curr.parent;
+    nodeIds.unshift(curr.nodeId);
   }
 
   return { nodeIds, edges };
@@ -424,18 +710,8 @@ export function calculateAllRoutes(
   const shadeMap = new Map<string, ShadeRecord>(shadeRecords.map((r) => [r.edgeId, r]));
   const depTimeStr = `${String(departureHour).padStart(2, '0')}:${String(departureMinute).padStart(2, '0')} IST`;
 
-  // 1. Calculate Shortest Route
-  const shortestRaw = runDijkstra(
-    network,
-    originNodeId,
-    destinationNodeId,
-    shadeMap,
-    'shortest',
-    departureHour,
-    departureMinute,
-    walkingSpeedMps,
-    dateInput,
-  );
+  // 1. Calculate Shortest Route via MinHeap Dijkstra
+  const shortestRaw = runShortestDistance(network, originNodeId, destinationNodeId);
   if (!shortestRaw) {
     return { ok: false, error: { code: 'no-route', message: 'No connected pedestrian route exists between these locations.' } };
   }
@@ -443,6 +719,7 @@ export function calculateAllRoutes(
   const shortestMetrics = calculateRouteMetrics(
     shortestRaw.edges,
     shadeMap,
+    0,
     0,
     departureHour,
     departureMinute,
@@ -459,25 +736,14 @@ export function calculateAllRoutes(
     coordinates: shortestPoly,
     metrics: shortestMetrics,
     isCoincidentWithShortest: true,
-    explanation: `Direct route prioritizing minimum distance (${shortestMetrics.distanceMetres} m, ~${shortestMetrics.walkingMinutes} min). Combined shade is ${shortestMetrics.combinedShadePercentage}% (Buildings: ${shortestMetrics.buildingPercentage}%, Trees: ${shortestMetrics.canopyPercentage}%).`,
+    explanation: `Direct route prioritizing minimum distance (${shortestMetrics.distanceMetres} m, ~${shortestMetrics.walkingMinutes} min). Direct sun: ${shortestMetrics.sunMinutes} min. Combined shade is ${shortestMetrics.combinedShadePercentage}% (Buildings: ${shortestMetrics.buildingPercentage}%, Trees: ${shortestMetrics.canopyPercentage}%).`,
   };
 
-  // 2. Calculate More Canopy / Cooler Route (with 35% max detour guard)
-  let moreCanopyRaw = runDijkstra(
+  // 2. Calculate Cooler Route via Constrained Search (min sun-minutes subject to detour <= 25%)
+  const moreCanopyRaw = runConstrainedCoolerRoute(
     network,
     originNodeId,
     destinationNodeId,
-    shadeMap,
-    'more-canopy',
-    departureHour,
-    departureMinute,
-    walkingSpeedMps,
-    dateInput,
-  );
-  let moreCanopyEdges = moreCanopyRaw ? moreCanopyRaw.edges : shortestRaw.edges;
-  let moreCanopyNodes = moreCanopyRaw ? moreCanopyRaw.nodeIds : shortestRaw.nodeIds;
-  let moreCanopyMetrics = calculateRouteMetrics(
-    moreCanopyEdges,
     shadeMap,
     shortestMetrics.distanceMetres,
     departureHour,
@@ -485,38 +751,30 @@ export function calculateAllRoutes(
     walkingSpeedMps,
     dateInput,
   );
-
-  if (moreCanopyMetrics.detourPercentage > 35) {
-    const balancedCandidate = runDijkstra(
-      network,
-      originNodeId,
-      destinationNodeId,
-      shadeMap,
-      'balanced',
-      departureHour,
-      departureMinute,
-      walkingSpeedMps,
-      dateInput,
-    );
-    if (balancedCandidate) {
-      moreCanopyEdges = balancedCandidate.edges;
-      moreCanopyNodes = balancedCandidate.nodeIds;
-      moreCanopyMetrics = calculateRouteMetrics(
-        moreCanopyEdges,
-        shadeMap,
-        shortestMetrics.distanceMetres,
-        departureHour,
-        departureMinute,
-        walkingSpeedMps,
-        dateInput,
-      );
-    }
-  }
+  const moreCanopyEdges = moreCanopyRaw ? moreCanopyRaw.edges : shortestRaw.edges;
+  const moreCanopyNodes = moreCanopyRaw ? moreCanopyRaw.nodeIds : shortestRaw.nodeIds;
+  const moreCanopyMetrics = calculateRouteMetrics(
+    moreCanopyEdges,
+    shadeMap,
+    shortestMetrics.distanceMetres,
+    shortestMetrics.sunMinutes,
+    departureHour,
+    departureMinute,
+    walkingSpeedMps,
+    dateInput,
+  );
 
   const moreCanopyIsCoincident = areRoutesIdentical(shortestRaw.edges, moreCanopyEdges);
-  const moreCanopyExplanation = moreCanopyIsCoincident
-    ? 'The shortest route already follows the most shaded corridor available for this destination.'
-    : `Offers ${moreCanopyMetrics.combinedShadeMetres} m of combined shade (${moreCanopyMetrics.combinedShadePercentage}% of route: ${moreCanopyMetrics.buildingPercentage}% building shadow + ${moreCanopyMetrics.canopyPercentage}% tree canopy), with a +${moreCanopyMetrics.detourPercentage}% detour (${moreCanopyMetrics.distanceMetres - shortestMetrics.distanceMetres} m).`;
+  const sunMinutesSavedByCooler = Math.max(0, Math.round((shortestMetrics.sunMinutes - moreCanopyMetrics.sunMinutes) * 10) / 10);
+
+  let moreCanopyExplanation = '';
+  if (moreCanopyIsCoincident) {
+    moreCanopyExplanation = 'The shortest route already follows the most shaded corridor available for this destination.';
+  } else if (sunMinutesSavedByCooler < 1.0) {
+    moreCanopyExplanation = 'Shortest route is already about as shaded';
+  } else {
+    moreCanopyExplanation = `Saves ${sunMinutesSavedByCooler.toFixed(1)} min in direct sun (${moreCanopyMetrics.sunMinutes} min vs ${shortestMetrics.sunMinutes} min) with a +${moreCanopyMetrics.detourPercentage}% detour (+${moreCanopyMetrics.detourDistanceMetres} m).`;
+  }
 
   const moreCanopyRoute: ComputedRoute = {
     mode: 'more-canopy',
@@ -529,22 +787,11 @@ export function calculateAllRoutes(
     explanation: moreCanopyExplanation,
   };
 
-  // 3. Calculate Balanced Route
-  let balancedRaw = runDijkstra(
+  // 3. Calculate Balanced Route via Constrained Search (weighted cost subject to detour <= 15%)
+  const balancedRaw = runBalancedRoute(
     network,
     originNodeId,
     destinationNodeId,
-    shadeMap,
-    'balanced',
-    departureHour,
-    departureMinute,
-    walkingSpeedMps,
-    dateInput,
-  );
-  let balancedEdges = balancedRaw ? balancedRaw.edges : shortestRaw.edges;
-  let balancedNodes = balancedRaw ? balancedRaw.nodeIds : shortestRaw.nodeIds;
-  let balancedMetrics = calculateRouteMetrics(
-    balancedEdges,
     shadeMap,
     shortestMetrics.distanceMetres,
     departureHour,
@@ -552,17 +799,30 @@ export function calculateAllRoutes(
     walkingSpeedMps,
     dateInput,
   );
-
-  if (balancedMetrics.detourPercentage > 15) {
-    balancedEdges = shortestRaw.edges;
-    balancedNodes = shortestRaw.nodeIds;
-    balancedMetrics = shortestMetrics;
-  }
+  const balancedEdges = balancedRaw ? balancedRaw.edges : shortestRaw.edges;
+  const balancedNodes = balancedRaw ? balancedRaw.nodeIds : shortestRaw.nodeIds;
+  const balancedMetrics = calculateRouteMetrics(
+    balancedEdges,
+    shadeMap,
+    shortestMetrics.distanceMetres,
+    shortestMetrics.sunMinutes,
+    departureHour,
+    departureMinute,
+    walkingSpeedMps,
+    dateInput,
+  );
 
   const balancedIsCoincident = areRoutesIdentical(shortestRaw.edges, balancedEdges);
-  const balancedExplanation = balancedIsCoincident
-    ? 'Identical to shortest route; no intermediate shaded corridor exists within a 15% distance limit.'
-    : `Balanced route balances walking effort (+${balancedMetrics.detourPercentage}% distance) with ${balancedMetrics.combinedShadePercentage}% combined shade (${balancedMetrics.buildingPercentage}% buildings, ${balancedMetrics.canopyPercentage}% trees).`;
+  const sunMinutesSavedByBalanced = Math.max(0, Math.round((shortestMetrics.sunMinutes - balancedMetrics.sunMinutes) * 10) / 10);
+
+  let balancedExplanation = '';
+  if (balancedIsCoincident) {
+    balancedExplanation = 'Identical to shortest route; no intermediate shaded corridor exists within a 15% distance limit.';
+  } else if (sunMinutesSavedByBalanced < 0.5) {
+    balancedExplanation = 'Shortest route is already about as shaded';
+  } else {
+    balancedExplanation = `Balanced route avoids ${sunMinutesSavedByBalanced.toFixed(1)} min of direct sun for only +${balancedMetrics.detourPercentage}% walking distance (+${balancedMetrics.detourDistanceMetres} m).`;
+  }
 
   const balancedRoute: ComputedRoute = {
     mode: 'balanced',
@@ -579,15 +839,15 @@ export function calculateAllRoutes(
   let recommendedMode: RouteMode = 'shortest';
   let summaryExplanation = '';
 
-  if (!moreCanopyIsCoincident && moreCanopyMetrics.combinedShadePercentage >= shortestMetrics.combinedShadePercentage + 12 && moreCanopyMetrics.detourPercentage <= 25) {
+  if (!moreCanopyIsCoincident && sunMinutesSavedByCooler >= 1.0 && moreCanopyMetrics.detourPercentage <= 25) {
     recommendedMode = 'more-canopy';
-    summaryExplanation = `Recommended: Cooler route provides significantly more shade (${moreCanopyMetrics.combinedShadePercentage}% vs ${shortestMetrics.combinedShadePercentage}%) combining building shadows and tree crowns for a +${moreCanopyMetrics.detourPercentage}% distance difference.`;
-  } else if (!balancedIsCoincident && balancedMetrics.combinedShadePercentage >= shortestMetrics.combinedShadePercentage + 6) {
+    summaryExplanation = `Recommended: Cooler route avoids direct sun by ${sunMinutesSavedByCooler.toFixed(1)} minutes (${moreCanopyMetrics.sunMinutes} min vs ${shortestMetrics.sunMinutes} min) with a +${moreCanopyMetrics.detourPercentage}% distance difference.`;
+  } else if (!balancedIsCoincident && sunMinutesSavedByBalanced >= 0.8 && balancedMetrics.detourPercentage <= 15) {
     recommendedMode = 'balanced';
-    summaryExplanation = `Recommended: Balanced route offers improved combined shade (+${balancedMetrics.combinedShadePercentage - shortestMetrics.combinedShadePercentage}%) with minimal extra distance.`;
+    summaryExplanation = `Recommended: Balanced route avoids ${sunMinutesSavedByBalanced.toFixed(1)} minutes of direct sun with minimal extra distance (+${balancedMetrics.detourPercentage}%).`;
   } else {
     recommendedMode = 'shortest';
-    summaryExplanation = `Recommended: Shortest route is optimal. Alternative streets do not offer enough extra combined shade to justify the added walking distance.`;
+    summaryExplanation = 'Shortest route is already about as shaded';
   }
 
   return {

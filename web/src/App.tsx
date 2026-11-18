@@ -375,7 +375,9 @@ export default function App() {
                   <div className="endpoint-label-row">
                     <small>STARTING POINT</small>
                     {origin?.snapDistanceMetres !== undefined && (
-                      <span className="snap-chip">Snapped {origin.snapDistanceMetres}m</span>
+                      <span className={`snap-chip ${origin.snapDistanceMetres > 30 ? 'snap-warning' : ''}`} title={origin.snapDistanceMetres > 30 ? 'Point is >30m from network; snapped to nearest street' : undefined}>
+                        {origin.snapDistanceMetres > 30 && '⚠️ '}Snapped {origin.snapDistanceMetres}m
+                      </span>
                     )}
                   </div>
                   <div className="endpoint-field">
@@ -429,7 +431,9 @@ export default function App() {
                   <div className="endpoint-label-row">
                     <small>DESTINATION</small>
                     {destination?.snapDistanceMetres !== undefined && (
-                      <span className="snap-chip">Snapped {destination.snapDistanceMetres}m</span>
+                      <span className={`snap-chip ${destination.snapDistanceMetres > 30 ? 'snap-warning' : ''}`} title={destination.snapDistanceMetres > 30 ? 'Point is >30m from network; snapped to nearest street' : undefined}>
+                        {destination.snapDistanceMetres > 30 && '⚠️ '}Snapped {destination.snapDistanceMetres}m
+                      </span>
                     )}
                   </div>
                   <div className="endpoint-field">
@@ -464,6 +468,14 @@ export default function App() {
                       <option key={l.id} value={l.id}>{l.name} ({l.category})</option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {/* Over-30m Snapping Warning Alert */}
+              {((origin?.snapDistanceMetres ?? 0) > 30 || (destination?.snapDistanceMetres ?? 0) > 30) && (
+                <div className="snap-distance-alert" role="alert">
+                  <Icon name="alert" size={14} />
+                  <span>Point is snapped &gt;30 m from walkable network. Walking directions start at nearest street access point.</span>
                 </div>
               )}
 
@@ -546,28 +558,41 @@ export default function App() {
                     <div className="card-topline">
                       <div className="mode-title-wrap">
                         <span className="mode-indicator canopy-color" />
-                        <strong>Cooler Way (Combined Shade)</strong>
+                        <strong>Cooler Way (More Shade)</strong>
                       </div>
                       {routeResult.recommendedMode === 'more-canopy' && (
                         <span className="badge-recommended"><Icon name="sparkles" size={12} /> RECOMMENDED</span>
                       )}
                     </div>
-                    <div className="card-metrics-row">
-                      <div className="metric-pill">
-                        <small>DISTANCE</small>
+
+                    {/* Headline metric: minutes in direct sun */}
+                    <div className="card-headline-row">
+                      <div className="headline-sun-metric">
+                        <Icon name="sun" size={16} />
+                        <span className="sun-metric-value">{routeResult.moreCanopy.metrics.sunMinutes} min</span>
+                        <span className="sun-metric-label">in direct sun</span>
+                      </div>
+                      <div className="headline-distance-info">
                         <span>{routeResult.moreCanopy.metrics.distanceMetres} m</span>
+                        <span className="detour-delta">
+                          {routeResult.moreCanopy.isCoincidentWithShortest ? '(same as shortest)' : `+${routeResult.moreCanopy.metrics.detourDistanceMetres}m (+${routeResult.moreCanopy.metrics.detourPercentage}%)`}
+                        </span>
                       </div>
-                      <div className="metric-pill">
-                        <small>TIME</small>
-                        <span>{routeResult.moreCanopy.metrics.walkingMinutes} min</span>
-                      </div>
+                    </div>
+
+                    {/* Secondary metrics */}
+                    <div className="card-metrics-row">
                       <div className="metric-pill highlight-green">
                         <small>TOTAL SHADE</small>
                         <span>{routeResult.moreCanopy.metrics.combinedShadePercentage}%</span>
                       </div>
                       <div className="metric-pill">
-                        <small>EXPOSED</small>
-                        <span>{routeResult.moreCanopy.metrics.exposedPercentage}%</span>
+                        <small>SUN SAVED</small>
+                        <span>{routeResult.moreCanopy.metrics.sunMinutesSavedVsShortest} min</span>
+                      </div>
+                      <div className="metric-pill">
+                        <small>WALK TIME</small>
+                        <span>{routeResult.moreCanopy.metrics.walkingMinutes} min</span>
                       </div>
                       {routeResult.moreCanopy.metrics.unknownPercentage > 0 && (
                         <div className="metric-pill highlight-unknown">
@@ -607,18 +632,29 @@ export default function App() {
                         <span className="badge-recommended"><Icon name="sparkles" size={12} /> RECOMMENDED</span>
                       )}
                     </div>
-                    <div className="card-metrics-row">
-                      <div className="metric-pill">
-                        <small>DISTANCE</small>
+
+                    {/* Headline metric: minutes in direct sun */}
+                    <div className="card-headline-row shortest-headline">
+                      <div className="headline-sun-metric">
+                        <Icon name="sun" size={16} />
+                        <span className="sun-metric-value">{routeResult.shortest.metrics.sunMinutes} min</span>
+                        <span className="sun-metric-label">in direct sun</span>
+                      </div>
+                      <div className="headline-distance-info">
                         <span>{routeResult.shortest.metrics.distanceMetres} m</span>
+                        <span className="detour-delta">(baseline distance)</span>
                       </div>
-                      <div className="metric-pill">
-                        <small>TIME</small>
-                        <span>{routeResult.shortest.metrics.walkingMinutes} min</span>
-                      </div>
+                    </div>
+
+                    {/* Secondary metrics */}
+                    <div className="card-metrics-row">
                       <div className="metric-pill">
                         <small>TOTAL SHADE</small>
                         <span>{routeResult.shortest.metrics.combinedShadePercentage}%</span>
+                      </div>
+                      <div className="metric-pill">
+                        <small>WALK TIME</small>
+                        <span>{routeResult.shortest.metrics.walkingMinutes} min</span>
                       </div>
                       <div className="metric-pill">
                         <small>EXPOSED</small>
@@ -658,22 +694,35 @@ export default function App() {
                         <span className="badge-recommended"><Icon name="sparkles" size={12} /> RECOMMENDED</span>
                       )}
                     </div>
-                    <div className="card-metrics-row">
-                      <div className="metric-pill">
-                        <small>DISTANCE</small>
+
+                    {/* Headline metric: minutes in direct sun */}
+                    <div className="card-headline-row balanced-headline">
+                      <div className="headline-sun-metric">
+                        <Icon name="sun" size={16} />
+                        <span className="sun-metric-value">{routeResult.balanced.metrics.sunMinutes} min</span>
+                        <span className="sun-metric-label">in direct sun</span>
+                      </div>
+                      <div className="headline-distance-info">
                         <span>{routeResult.balanced.metrics.distanceMetres} m</span>
+                        <span className="detour-delta">
+                          {routeResult.balanced.isCoincidentWithShortest ? '(same as shortest)' : `+${routeResult.balanced.metrics.detourDistanceMetres}m (+${routeResult.balanced.metrics.detourPercentage}%)`}
+                        </span>
                       </div>
-                      <div className="metric-pill">
-                        <small>TIME</small>
-                        <span>{routeResult.balanced.metrics.walkingMinutes} min</span>
-                      </div>
+                    </div>
+
+                    {/* Secondary metrics */}
+                    <div className="card-metrics-row">
                       <div className="metric-pill">
                         <small>TOTAL SHADE</small>
                         <span>{routeResult.balanced.metrics.combinedShadePercentage}%</span>
                       </div>
                       <div className="metric-pill">
-                        <small>EXPOSED</small>
-                        <span>{routeResult.balanced.metrics.exposedPercentage}%</span>
+                        <small>SUN SAVED</small>
+                        <span>{routeResult.balanced.metrics.sunMinutesSavedVsShortest} min</span>
+                      </div>
+                      <div className="metric-pill">
+                        <small>WALK TIME</small>
+                        <span>{routeResult.balanced.metrics.walkingMinutes} min</span>
                       </div>
                       {routeResult.balanced.metrics.unknownPercentage > 0 && (
                         <div className="metric-pill highlight-unknown">

@@ -33,62 +33,73 @@ From OpenStreetMap highway geometries filtered to the Chintamani Nagar & Bibwewa
 
 For an edge $e$ with physical length $L(e)$ traversed at estimated elapsed time $t_{\text{arrival}}(e)$:
 
-### A. Dynamic Solar Scaling for Building Shadows
-At the segment's arrival time, the solar position algorithm calculates solar altitude $\alpha$ and azimuth $\psi$.
-The dynamic building shadow fraction is scaled from solar noon baseline according to the solar shadow multiplier:
-$$f_{\text{bldg}}(e, t) = \min\left(1.0, f_{\text{bldg,base}}(e) \times \frac{M(\alpha_t)}{M_{\text{noon}}}\right)$$
-where $M(\alpha) = 1 / \tan\alpha$.
-- At morning (09:30 IST, $\alpha \approx 46^\circ$), $M \approx 1.0$, stretching building shadows by $+150\%$ over solar noon ($M \approx 0.40$).
-- At late afternoon (17:00 IST, $\alpha \approx 18^\circ$), shadows stretch across east-west residential streets.
+### A. Hourly Precomputed Solar Slots & Dynamic Arrival Interpolation
+Per-edge shade is precomputed by the pipeline (`scripts/process_pilot_data.py`) across 11 hourly slots (07:00 to 17:00 IST) for two representative seasonal dates (18 Nov and 25 Apr) using the rigorous NOAA Solar Calculations (Jean Meeus algorithm):
+- **Building Shadows:** 2D ground shadow hulls projected from calibrated building footprints and heights along the solar azimuth.
+- **Tree Shadows:** Displaced crown circles along the shadow direction: $\text{offset} = \frac{h_{\text{tree}}}{\tan\alpha}$ where $h_{\text{tree}}$ is tree height and $\alpha$ is solar altitude.
+- **Runtime Interpolation:** For any departure time and walking speed, the estimated pedestrian arrival time $t_{\text{arrival}}(e)$ is calculated dynamically. Edge shade fractions $[f_{\text{comb}}, f_{\text{tree}}, f_{\text{bldg}}]$ are linearly interpolated between the two nearest hourly slots.
 
-### B. Strict Mathematical Union (Zero Double Counting)
-$$f_{\text{combined}}(e, t) = f_{\text{covered}}(e) + (1 - f_{\text{covered}}(e)) \cdot \left[ f_{\text{bldg}}(e, t) + f_{\text{tree}}(e) - f_{\text{bldg}}(e, t) \cdot f_{\text{tree}}(e) \right]$$
-Total shaded distance is $L_{\text{shaded}}(e) = L(e) \times f_{\text{combined}}(e, t)$.
-Total exposed distance is $L_{\text{exposed}}(e) = L(e) - L_{\text{shaded}}(e)$.
+### B. Strict Mathematical Union (Zero Double Counting) & Unknown Handling
+$$f_{\text{combined}}(e, t) = \min\left(1 - f_{\text{unknown}}(e), \operatorname{Union}\left(f_{\text{covered}}(e), f_{\text{bldg}}(e, t), f_{\text{tree}}(e, t)\right)\right)$$
+- Total shaded distance: $L_{\text{shaded}}(e) = L(e) \times f_{\text{combined}}(e, t)$
+- Total unknown distance: $L_{\text{unknown}}(e) = L(e) \times f_{\text{unknown}}(e)$
+- Total exposed distance: $L_{\text{exposed}}(e) = L(e) \times \max(0.0, 1.0 - f_{\text{combined}}(e, t) - f_{\text{unknown}}(e))$
+- **Crucial Honesty Rule:** Unknown distance is never counted as exposed or shaded.
 
 ---
 
-## 4. Routing Modes & Cost Formulations
+## 4. Headline Metric: Minutes in Direct Sun
+
+The primary headline metric displayed on every route card is **Minutes in Direct Sun**:
+$$\text{Minutes in Direct Sun} = \sum_{e \in \text{route}} \frac{L(e) \cdot \max(0, 1 - f_{\text{combined}}(e, t) - f_{\text{unknown}}(e))}{v_{\text{walk}} \cdot 60}$$
+where standard pedestrian velocity $v_{\text{walk}} = 1.25\text{ m/s}$ ($4.5\text{ km/h}$).
+
+This replaces deceptive temperature metrics with physical truth: the actual cumulative duration a pedestrian walks under unshaded solar radiation. Total distance, detour vs shortest, and shade percentages are displayed secondarily.
+
+---
+
+## 5. Routing Modes & Constrained Search Formulations
+
+All graph searches run on a custom TypeScript binary min-heap (`MinHeap<T>`) executing in $\mathcal{O}((V + E)\log V)$ time instead of $\mathcal{O}(V^2)$.
 
 ### Mode 1: Shortest Route
 $$\text{Cost}_{\text{shortest}}(e) = L(e)$$
-- **Objective:** Minimize total walking distance and duration.
-- **Walking Speed:** Standard pedestrian speed of $1.25 \text{ m/s}$ ($4.5 \text{ km/h}$).
+- **Objective:** Pure distance minimization via min-heap Dijkstra.
+- Yields baseline distance $D_{\text{shortest}}$ and baseline sun minutes $S_{\text{shortest}}$.
 
-### Mode 2: Cooler / More Canopy Route
-$$\text{Cost}_{\text{more-canopy}}(e) = L_{\text{exposed}}(e) + \beta \times L_{\text{shaded}}(e)$$
-- **Weighting Parameter:** $\beta = 0.25$ (a $75\%$ cost discount for walking under building shadows, tree canopies, or covered arcades).
-- **Detour Protection Guard:**
-  Let $D_{\text{shortest}}$ be the distance of the shortest route. If the resulting route distance $D > 1.35 \times D_{\text{shortest}}$ (more than a $35\%$ detour), the engine automatically clamps or selects the balanced candidate to prevent impractical diversions.
+### Mode 2: Cooler Route (Constrained Sun-Minimization)
+$$\min \sum_{e \in \text{route}} \frac{L_{\text{exposed}}(e)}{v_{\text{walk}} \cdot 60} \quad \text{subject to} \quad \text{Distance} \le 1.25 \times D_{\text{shortest}}$$
+- **Hard Detour Constraint:** The route distance is strictly bounded to $\le 25\%$ detour above shortest.
+- **Solver:** Bicriteria label-setting search with Pareto-frontier domination pruning on $(\text{sunSeconds}, \text{distance})$. Subpaths exceeding $1.25 \times D_{\text{shortest}}$ or dominated by existing labels are pruned immediately.
+- Detour is mathematically guaranteed to never exceed 25%.
 
-### Mode 3: Balanced Route
-$$\text{Cost}_{\text{balanced}}(e) = L_{\text{exposed}}(e) + \alpha \times L_{\text{shaded}}(e)$$
-- **Weighting Parameter:** $\alpha = 0.65$ (a $35\%$ cost discount for shaded sections).
-- **Detour Protection Guard:** Maximum allowed detour is $15\%$ over the shortest path. If an alternative exceeds $15\%$ detour, the route clamps to the shortest path.
+### Mode 3: Balanced Route (Constrained Weighted Cost)
+$$\text{Cost}_{\text{balanced}}(e) = L_{\text{exposed}}(e) + 0.50 \times L_{\text{shaded}}(e) \quad \text{subject to} \quad \text{Distance} \le 1.15 \times D_{\text{shortest}}$$
+- **Documented Weight:** 50% discount for shade (1 metre in shade counts as 0.50 m cost; 1 metre in direct sun counts as 1.0 m cost).
+- **Hard Detour Constraint:** Strictly bounded to $\le 15\%$ detour above shortest.
 
 ---
 
-## 5. Snapping & Map Interaction
+## 6. Snapping & Network Access Verification
 
-When a user taps an arbitrary location on the interactive map:
-1. The engine calculates the Haversine distance from $(lon, lat)$ to all candidate network nodes:
-   $$d = 2 R \arcsin\left(\sqrt{\sin^2(\Delta\phi/2) + \cos\phi_1\cos\phi_2\sin^2(\Delta\lambda/2)}\right)$$
+When a user taps an arbitrary location on the interactive map or chooses a landmark:
+1. The engine calculates the Haversine distance from $(lon, lat)$ to all candidate network nodes.
 2. The closest node $N_{\text{snap}}$ is identified.
-3. A visual snap indicator chip displays the snapped distance (e.g. *"Snapped 4.2m to network"*).
-4. A dashed snap guide line connects the user's click pin to the actual network entry point on the map.
+3. The exact snap distance is displayed (e.g. *"Snapped 4.2m"*).
+4. **Warning Threshold:** If snap distance $> 30\text{ m}$, a prominent warning badge is displayed:
+   *`⚠️ Snapped >30 m from walkable network. Directions begin/end at nearest street access point.`*
 
 ---
 
-## 6. Route Comparison & Recommendation Algorithm
+## 7. Honest Route Comparison & Recommendation Algorithm
 
-Upon calculating all 3 routes for an origin-destination pair, the engine evaluates whether the environmental benefit justifies the additional walking distance:
-- **Recommend "More Canopy":**
-  $$\text{if } \Delta_{\text{shade}} \ge +15\% \text{ and } \text{Detour} \le 25\%$$
-  The engine highlights the Cooler route as recommended and explains:
-  *"Recommended: Cooler route provides significantly more shade (X% vs Y%) for only +Z% added distance."*
-- **Recommend "Balanced":**
-  $$\text{if } \Delta_{\text{shade}} \ge +8\% \text{ and } \text{Detour} \le 15\%$$
-  The engine highlights the Balanced route.
-- **Recommend "Shortest":**
-  If alternatives provide negligible shade gains ($< 8\%$) or require disproportionate detours, the engine recommends the Shortest path and explains:
-  *"Recommended: Shortest route is optimal. Alternative detours do not offer enough extra shade to justify the added walking distance."*
+The engine never pushes an unnecessary detour when the shade difference is negligible:
+- **Honest 1-Minute Rule:**
+  If the Cooler route gains less than **1.0 minute** of direct sun avoidance compared to the shortest route ($\Delta_{\text{sun}} < 1.0\text{ min}$):
+  - The engine plainly states: **"Shortest route is already about as shaded"**
+  - The engine recommends the **Shortest Route**, not the detour!
+- **Recommend Cooler Route:**
+  Only when $\Delta_{\text{sun}} \ge 1.0\text{ min}$, $\text{Detour} \le 25\%$, and routes are non-coincident:
+  *"Recommended: Cooler route avoids direct sun by X.X minutes (Y min vs Z min) with a +W% distance difference."*
+- **Recommend Balanced Route:**
+  Only when $\Delta_{\text{sun}} \ge 0.8\text{ min}$, $\text{Detour} \le 15\%$, and routes are non-coincident.

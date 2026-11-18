@@ -5,6 +5,7 @@ import {
   edgeLength,
   snapCoordinateToNetwork,
   interpolateSlotShade,
+  MinHeap,
 } from '../routing/routeEngine';
 import type { CampusEdge, CampusNode, RouteNetwork, ShadeRecord } from '../data/types';
 
@@ -262,5 +263,95 @@ describe('Route Engine', () => {
     expect(result.combinedFrac).toBe(0.0);
     expect(result.treeFrac).toBe(0.0);
     expect(result.bldgFrac).toBe(0.0);
+  });
+
+  it('validates MinHeap priority queue ordering', () => {
+    const heap = new MinHeap<string>();
+    heap.push(50, 'fifty');
+    heap.push(10, 'ten');
+    heap.push(30, 'thirty');
+    heap.push(5, 'five');
+    heap.push(20, 'twenty');
+
+    expect(heap.size).toBe(5);
+    expect(heap.pop()?.value).toBe('five');
+    expect(heap.pop()?.value).toBe('ten');
+    expect(heap.pop()?.value).toBe('twenty');
+    expect(heap.pop()?.value).toBe('thirty');
+    expect(heap.pop()?.value).toBe('fifty');
+    expect(heap.isEmpty()).toBe(true);
+  });
+
+  it('strictly enforces <= 25% detour constraint on cooler route', () => {
+    // Add an extreme detour node E that is 100% shaded but has a 40% detour
+    const nodesWithE: CampusNode[] = [
+      ...sampleNodes,
+      { nodeId: 'node-E', coordinates: [73.866, 18.465] }, // 40%+ longer detour
+    ];
+    const edgesWithE: CampusEdge[] = [
+      ...sampleEdges,
+      {
+        edgeId: 'edge-AE',
+        fromNodeId: 'node-A',
+        toNodeId: 'node-E',
+        coordinates: [[73.865, 18.463], [73.866, 18.465]],
+        pathClass: 'footway',
+        accessStatus: 'osm-derived',
+        verificationStatus: 'unverified',
+        sourceRef: { type: 'osm', sourceId: '6' },
+      },
+      {
+        edgeId: 'edge-EC',
+        fromNodeId: 'node-E',
+        toNodeId: 'node-C',
+        coordinates: [[73.866, 18.465], [73.867, 18.463]],
+        pathClass: 'footway',
+        accessStatus: 'osm-derived',
+        verificationStatus: 'unverified',
+        sourceRef: { type: 'osm', sourceId: '7' },
+      },
+    ];
+    const shadeWithE: ShadeRecord[] = [
+      ...sampleShade,
+      { edgeId: 'edge-AE', status: 'modeled', shadeFraction: 1.0, buildingShadeFraction: 1.0, treeShadeFraction: 1.0 },
+      { edgeId: 'edge-EC', status: 'modeled', shadeFraction: 1.0, buildingShadeFraction: 1.0, treeShadeFraction: 1.0 },
+    ];
+
+    const netWithE: RouteNetwork = {
+      schemaVersion: 1,
+      campusId: 'test-pilot',
+      dataRevision: 1,
+      nodes: nodesWithE,
+      edges: edgesWithE,
+    };
+
+    const result = calculateAllRoutes(netWithE, 'node-A', 'node-C', shadeWithE);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Cooler route detour must never exceed 25%
+    expect(result.routes.moreCanopy.metrics.detourPercentage).toBeLessThanOrEqual(25);
+    // AE+EC is ~40% detour, so it must NOT be selected despite being 100% shaded!
+    const coolerEdgeIds = result.routes.moreCanopy.edges.map((e) => e.edgeId);
+    expect(coolerEdgeIds).not.toContain('edge-AE');
+  });
+
+  it('honestly states shortest route is about as shaded when savings < 1.0 minute', () => {
+    // If the shaded detour saves less than 1.0 minute of direct sun,
+    // it must state "Shortest route is already about as shaded" and recommend shortest.
+    const minimalSavingsShade: ShadeRecord[] = [
+      { edgeId: 'edge-AB', status: 'modeled', shadeFraction: 0.60, treeShadeFraction: 0.60 },
+      { edgeId: 'edge-BC', status: 'modeled', shadeFraction: 0.60, treeShadeFraction: 0.60 },
+      { edgeId: 'edge-AD', status: 'modeled', shadeFraction: 0.70, treeShadeFraction: 0.70 },
+      { edgeId: 'edge-DC', status: 'modeled', shadeFraction: 0.70, treeShadeFraction: 0.70 },
+    ];
+
+    const result = calculateAllRoutes(network, 'node-A', 'node-C', minimalSavingsShade);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Sun savings is < 1 min, so shortest must be recommended!
+    expect(result.routes.recommendedMode).toBe('shortest');
+    expect(result.routes.summaryExplanation).toContain('Shortest route is already about as shaded');
   });
 });
