@@ -76,9 +76,10 @@ export function PlannerPanel({
         onClick={() => {
           if (sheetSnap === 'peek') onSetSheetSnap('half');
           else if (sheetSnap === 'half') onSetSheetSnap('full');
-          else onSetSheetSnap('half');
+          else onSetSheetSnap('peek');
         }}
-        title="Tap to expand or minimize"
+        title="Tap to cycle snap points (peek, half, full)"
+        aria-label="Bottom sheet handle: Tap to expand or collapse"
       >
         <span className="sheet-handle-pill" aria-hidden="true" />
       </div>
@@ -96,7 +97,7 @@ export function PlannerPanel({
                   className="btn-demo-header"
                   onClick={onOpenDemo}
                   title="Open curated demonstration trips"
-                  aria-label="Open curated demonstration trips"
+                  aria-label="Demo: Open curated demonstration trips"
                 >
                   ★ Demo
                 </button>
@@ -107,6 +108,28 @@ export function PlannerPanel({
             Minimising direct solar radiation through combined building shadows and tree crowns.
           </p>
         </div>
+
+        {/* Onboarding Explainer / Primary Action Banner */}
+        {!activeDemoTrip && (
+          <div className="onboarding-card">
+            <p className="onboarding-tagline">
+              <strong>Walk in the shade, not the heat.</strong>
+            </p>
+            <p className="onboarding-summary">
+              Calculates real building shadows and tree canopies to minimise direct sun across Chintamani Nagar &amp; Bibwewadi.
+            </p>
+            {onOpenDemo && (
+              <button
+                type="button"
+                className="btn-primary-demo"
+                onClick={onOpenDemo}
+                aria-label="Demo: Try a Curated Demo Trip"
+              >
+                ★ Try a Curated Demo Trip
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Active Demo Trip Indicator */}
         {activeDemoTrip && (

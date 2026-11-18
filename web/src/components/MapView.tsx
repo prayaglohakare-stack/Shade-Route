@@ -52,23 +52,27 @@ export interface MapViewProps {
 function pinIcon(label: 'A' | 'B', color: string): L.DivIcon {
   return L.divIcon({
     className: 'custom-route-pin',
-    html: `<div style="background-color: ${color}; width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2.5px solid #ffffff;">
-      <span style="transform: rotate(45deg); color: #ffffff; font-weight: 800; font-size: 14px; font-family: ui-sans-serif, system-ui, sans-serif;">${label}</span>
+    html: `<div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+      <div style="background-color: ${color}; width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2.5px solid #ffffff;">
+        <span style="transform: rotate(45deg); color: #ffffff; font-weight: 800; font-size: 14px; font-family: ui-sans-serif, system-ui, sans-serif;">${label}</span>
+      </div>
     </div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 34],
-    popupAnchor: [0, -34],
+    iconSize: [44, 44],
+    iconAnchor: [22, 44],
+    popupAnchor: [0, -44],
   });
 }
 
 function landmarkIcon(): L.DivIcon {
   return L.divIcon({
     className: 'landmark-pin',
-    html: `<div style="background-color: #163D32; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.25); border: 2px solid #ffffff;">
-      <span style="color: #A8C99A; font-size: 11px;">★</span>
+    html: `<div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+      <div style="background-color: #163D32; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.25); border: 2px solid #ffffff;">
+        <span style="color: #A8C99A; font-size: 12px; line-height: 1;">★</span>
+      </div>
     </div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 11],
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
   });
 }
 
@@ -132,10 +136,10 @@ export function MapView({
     L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     tileLayerRef.current = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
       {
-        attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-        subdomains: 'abcd',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        subdomains: 'abc',
         maxZoom: 19,
       },
     ).addTo(map);

@@ -1378,13 +1378,14 @@ body {
   background-color: var(--color-primary);
   color: #ffffff;
   border: 1px solid var(--color-primary-dark);
-  padding: 5px 12px;
+  padding: 6px 14px;
   border-radius: var(--radius-full);
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
-  min-height: 36px;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 .btn-demo-pill:hover {
@@ -1412,6 +1413,61 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+/* Onboarding Welcome Card */
+.onboarding-card {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1.5px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.onboarding-tagline {
+  font-size: 0.95rem;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.onboarding-summary {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.btn-primary-demo {
+  margin-top: 4px;
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 8px 16px;
+  background-color: var(--color-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.btn-primary-demo:hover {
+  background-color: var(--color-secondary);
+  transform: translateY(-1px);
+}
+
+.landmark-pin {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Active Demo Banner */

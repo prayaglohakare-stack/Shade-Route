@@ -1,4 +1,5 @@
-const CACHE_NAME = 'shaderoute-static-v1';
+const BUILD_VERSION = '__BUILD_HASH__';
+const CACHE_NAME = `shaderoute-${BUILD_VERSION}`;
 const APP_ROOT = new URL('./', self.registration.scope).href;
 
 self.addEventListener('install', (event) => {

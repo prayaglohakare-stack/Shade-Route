@@ -297,7 +297,7 @@ export default function App() {
             className="btn-demo-pill"
             onClick={() => setShowDemoModal(true)}
             title="Explore curated demonstration trips"
-            aria-label="Open curated demonstration trips"
+            aria-label="Demo: Explore curated demonstration trips"
           >
             ★ Demo
           </button>

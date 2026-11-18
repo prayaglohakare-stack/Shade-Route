@@ -59,19 +59,20 @@ ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application
   - East: `73.8710° E`
   - North: `18.4675° N`
 - **Why this area was chosen:**
-  1. **Connectivity:** 200 walkable highway ways forming a continuous connected graph of 698 nodes and 836 edges (23.6 km of pedestrian street network).
-  2. **Public Access Status:** Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`. No field validation has been conducted yet; routes are derived from public OpenStreetMap pedestrian ways.
-  3. **High-Density Environmental Evidence:** 3,738 active geo-tagged municipal trees (65 dead trees excluded) from the official Pune Tree Census (average canopy diameter 4.25 m).
-  4. **Active Pedestrian Corridors:** Connects transit crossroads (Lake Town Junction, Swami Vivekanand Marg) to residential neighborhoods, community parks, clinics, and student entrances at VIT Pune Main Gate.
+  1. **Connectivity:** 457 nodes and 584 edges forming 17.11 km of continuous walkable pedestrian pathways within the pilot bounding box.
+  2. **100% Environmental Coverage:** 100% of network edges have complete building and tree coverage (0.0% unknown edge length).
+  3. **Public Access Status:** Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`. No field validation has been conducted yet; routes are derived from public OpenStreetMap pedestrian ways.
+  4. **High-Density Environmental Evidence:** 3,738 active geo-tagged municipal trees (65 dead trees excluded) from the official Pune Tree Census (average canopy diameter 4.25 m).
+  5. **Active Pedestrian Corridors:** Connects residential societies in Chintamani Nagar, community parks, polyclinics, and student entrances at VIT Pune Student Pedestrian Gate.
 
 ---
 
 ## 3. Technology Stack
 
 - **Frontend:** React 19, TypeScript, Vite
-- **Mapping:** Leaflet 1.9.4 with Canvas/GeoJSON rendering
+- **Mapping:** Leaflet 1.9.4 with OpenStreetMap vector tiles & GeoJSON rendering
 - **Routing Engine:** Zero-dependency, pure in-memory browser-side Dijkstra / A* graph solver (`web/src/routing/routeEngine.ts`)
-- **Solar Engine:** Astronomical solar position and shadow projection algorithm for Pune (`web/src/routing/solarEngine.ts`)
+- **Solar Engine:** NOAA astronomical solar position and shadow projection algorithm for Pune (`web/src/routing/solarEngine.ts`)
 - **Data Engineering:** Python 3 standard library geometry and ETL pipeline (`scripts/process_pilot_data.py`)
 - **Testing:** Vitest test suite (`web/src/__tests__/`) and Python schema validation (`scripts/validate_bundle.py`)
 - **Zero-Budget Constraint:** ₹0 spent. No paid APIs (no Google Maps API, no Mapbox token), no backend server, no database dependency. Entirely runnable as a static client application with locally bundled pilot data.
@@ -83,11 +84,27 @@ ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application
 | Layer | Source Authority | Capture Date | License | Attributes |
 | :--- | :--- | :--- | :--- | :--- |
 | **Tree Inventory** | Pune Municipal Corporation (PMC) Tree Census | August 2019 | Open Data Commons / Pune Civic Open Data | 3,738 trees (65 dead excluded): Species, Height, Canopy Dia, Condition, Ownership |
-| **Pedestrian Network** | OpenStreetMap API Bounded Extract | November 2026 | Open Database License (ODbL) 1.0 | 200 ways, 698 nodes, 836 walkable edges |
+| **Pedestrian Network** | OpenStreetMap API Bounded Extract | November 2026 | Open Database License (ODbL) 1.0 | 457 nodes, 584 walkable edges (17.11 km) |
 | **Building Footprints**| OpenStreetMap | November 2026 | ODbL 1.0 | 376 building polygons |
-| **Solar Calculations** | Astronomical Almanac Formulas | Computed (Pune 18.46°N) | MIT | Elevation, Azimuth, Shadow Vector |
+| **Solar Calculations** | NOAA Solar Position Algorithm | Computed (Pune 18.46°N, 73.87°E, IST) | MIT | True Solar Elevation, Azimuth, Equation of Time |
 
 Detailed documentation: [DATA_PROVENANCE.md](docs/DATA_PROVENANCE.md).
+
+---
+
+## 5. Known Limitations & Scientific Honesty
+
+ShadeRoute adheres strictly to transparent, auditable science:
+
+1. **Modelled, Not Measured:** No physical ground-truth sensor verification has been performed. All shadows and crowns are geometric projections.
+2. **Shade $\ne$ Ambient Air Temperature:** Shade reduces direct shortwave radiant flux (~800–1,000 W/m² in Pune), reducing Mean Radiant Temperature and thermal strain. Ambient air temperature remains roughly identical in shaded and sunlit street corridors.
+3. **Census Vintage (2019):** Tree records originate from the 2019 PMC Tree Census. While dead trees are excluded and defaulted canopies flagged, sapling growth, canopy trimming, or tree removals since 2019 are not captured in the dataset.
+4. **Estimated Building Heights:** Where OpenStreetMap lacks explicit `height` or `building:levels` tags, heights are estimated using Tier-4 typology averages calibrated for Bibwewadi residential buildings.
+5. **Seasonal Calibration:** The solar shadow model is calibrated specifically for November winter sun and April summer near-zenith sun.
+6. **Zero Unknown Inflation:** In the clipped pilot network, 100% of edges lie within data coverage (0.0% unknown). Any remaining unknown length is strictly counted as fully sunny in routing costs and metrics.
+7. **Evening Clamping:** Departure walks reaching edges after 17:00 IST are clamped to the 17:00 sunset slot and flagged with a visible note in route cards.
+
+Empirical performance benchmarks across 300 random trips: see [docs/CLAIM_STATS.md](docs/CLAIM_STATS.md).
 
 ---
 
