@@ -16,7 +16,9 @@ export type RouteDataAvailability =
 
 export interface CampusRepository {
   listCampuses(): CampusEntry[];
-  loadRouteBundle(campusId: string): Promise<RouteDataAvailability>;
+  loadRouteBundle(campusId: string, options?: { lazyLayers?: boolean }): Promise<RouteDataAvailability>;
+  loadCanopy(campusId: string): Promise<GeoJSON.FeatureCollection | null>;
+  loadTrees(campusId: string): Promise<GeoJSON.FeatureCollection | null>;
   listSources(campusId: string): DataSourceReference[];
 }
 
@@ -48,7 +50,7 @@ export const campusRepository: CampusRepository = {
     return (registryData.campuses as CampusEntry[]) || [];
   },
 
-  async loadRouteBundle(campusId: string): Promise<RouteDataAvailability> {
+  async loadRouteBundle(campusId: string, options?: { lazyLayers?: boolean }): Promise<RouteDataAvailability> {
     const campuses = this.listCampuses();
     const campus = campuses.find((c) => c.campusId === campusId);
 
@@ -98,21 +100,31 @@ export const campusRepository: CampusRepository = {
       };
 
       const loadBuildings = buildingFiles[`${base}buildings.geojson`];
-      const loadCanopy = canopyFiles[`${base}canopy.geojson`];
-      const loadTrees = treeFiles[`${base}trees.geojson`];
       const loadLandmarks = landmarkFiles[`${base}landmarks.json`];
 
-      const [bldgs, can, trs, lms] = await Promise.all([
-        loadBuildings ? loadBuildings() : null,
-        loadCanopy ? loadCanopy() : null,
-        loadTrees ? loadTrees() : null,
-        loadLandmarks ? loadLandmarks() : null,
-      ]);
-
-      if (bldgs) geoData.buildings = bldgs;
-      if (can) geoData.canopy = can;
-      if (trs) geoData.trees = trs;
-      if (lms) geoData.landmarks = lms;
+      if (options?.lazyLayers) {
+        // Fast initial paint: load buildings and landmarks immediately, defer large canopy/tree layers
+        const [bldgs, lms] = await Promise.all([
+          loadBuildings ? loadBuildings() : null,
+          loadLandmarks ? loadLandmarks() : null,
+        ]);
+        if (bldgs) geoData.buildings = bldgs;
+        if (lms) geoData.landmarks = lms;
+      } else {
+        // Full load (e.g. integration tests)
+        const loadCanopy = canopyFiles[`${base}canopy.geojson`];
+        const loadTrees = treeFiles[`${base}trees.geojson`];
+        const [bldgs, can, trs, lms] = await Promise.all([
+          loadBuildings ? loadBuildings() : null,
+          loadCanopy ? loadCanopy() : null,
+          loadTrees ? loadTrees() : null,
+          loadLandmarks ? loadLandmarks() : null,
+        ]);
+        if (bldgs) geoData.buildings = bldgs;
+        if (can) geoData.canopy = can;
+        if (trs) geoData.trees = trs;
+        if (lms) geoData.landmarks = lms;
+      }
 
       return {
         status: 'ready',
@@ -129,6 +141,18 @@ export const campusRepository: CampusRepository = {
       console.error('Error loading campus bundle:', err);
       return { status: 'pending-validation', campusId, reason: 'Failed to load bundle data.' };
     }
+  },
+
+  async loadCanopy(campusId: string): Promise<GeoJSON.FeatureCollection | null> {
+    const loader = canopyFiles[`../../../data/campuses/${campusId}/canopy.geojson`];
+    if (!loader) return null;
+    return loader();
+  },
+
+  async loadTrees(campusId: string): Promise<GeoJSON.FeatureCollection | null> {
+    const loader = treeFiles[`../../../data/campuses/${campusId}/trees.geojson`];
+    if (!loader) return null;
+    return loader();
   },
 
   listSources(_campusId: string): DataSourceReference[] {
