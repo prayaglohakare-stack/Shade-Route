@@ -27,15 +27,15 @@ const shadeFiles = import.meta.glob<{ records?: ShadeRecord[]; campusId?: string
   { import: 'default' },
 );
 const buildingFiles = import.meta.glob<GeoJSON.FeatureCollection>(
-  '../../../data/campuses/*/buildings.json',
+  '../../../data/campuses/*/buildings.geojson',
   { import: 'default' },
 );
 const canopyFiles = import.meta.glob<GeoJSON.FeatureCollection>(
-  '../../../data/campuses/*/canopy.json',
+  '../../../data/campuses/*/canopy.geojson',
   { import: 'default' },
 );
 const treeFiles = import.meta.glob<GeoJSON.FeatureCollection>(
-  '../../../data/campuses/*/trees.json',
+  '../../../data/campuses/*/trees.geojson',
   { import: 'default' },
 );
 const landmarkFiles = import.meta.glob<Landmark[]>(
@@ -97,9 +97,9 @@ export const campusRepository: CampusRepository = {
         landmarks: [],
       };
 
-      const loadBuildings = buildingFiles[`${base}buildings.json`];
-      const loadCanopy = canopyFiles[`${base}canopy.json`];
-      const loadTrees = treeFiles[`${base}trees.json`];
+      const loadBuildings = buildingFiles[`${base}buildings.geojson`];
+      const loadCanopy = canopyFiles[`${base}canopy.geojson`];
+      const loadTrees = treeFiles[`${base}trees.geojson`];
       const loadLandmarks = landmarkFiles[`${base}landmarks.json`];
 
       const [bldgs, can, trs, lms] = await Promise.all([

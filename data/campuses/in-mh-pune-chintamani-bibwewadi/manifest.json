@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "campusId": "in-mh-pune-chintamani-bibwewadi",
   "dataRevision": 2,
-  "publishedAt": "2026-11-17T19:44:07.894367+00:00",
+  "publishedAt": "2026-11-18T07:48:53.757657+00:00",
   "campus": {
     "name": "Chintamani Nagar \u2014 Bibwewadi Pedestrian Pilot",
     "address": "Chintamani Nagar Part 1 & Bibwewadi Neighbourhood, Pune, Maharashtra 411037",
@@ -57,8 +57,9 @@
   ],
   "limitations": [
     "Building heights are classified using an explicit 5-tier confidence taxonomy; 376 footprints use calibrated architectural typologies and carry explicit uncertainty flags.",
-    "Tree coordinates and canopy diameters originate from the 2019 PMC Tree Census and may not capture recent changes.",
+    "Tree coordinates and canopy diameters originate from the 2019 PMC Tree Census (excluding 65 dead trees). 2 trees use defaulted canopy diameter (3.5 m) and 0 trees use defaulted height (5.0 m).",
     "Combined shade represents the non-double-counted mathematical union of building-cast shadows, tree crowns, and covered walkways under modelled solar conditions.",
-    "Shade is not air temperature; calculations represent potential line-of-sight solar radiation protection."
+    "Shade is not air temperature; calculations represent potential line-of-sight solar radiation protection.",
+    "Every network edge is labelled osm-derived and unverified. No field validation has been conducted yet."
   ]
 }

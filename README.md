@@ -10,7 +10,7 @@ ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application
 
 - **Combined Built & Natural Environment Intelligence:**
   - **Building-Cast Shadows:** Dynamic ground shadow polygons computed via 2D convex hulls of building base and roof projections according to real-time astronomical solar position.
-  - **Tree-Canopy Shadows:** Circular crowns ($R = D/2$) derived from 3,803 individual municipal tree records with measured canopy diameters.
+  - **Tree-Canopy Shadows:** Circular crowns ($R = D/2$) derived from 3,738 active municipal tree records (excluding dead trees) with measured canopy diameters.
   - **Covered Walkways:** Permanent architectural coverings, arcades, and transit structures.
   - **Non-Double-Counting Union:** Strict mathematical union ($A + B - A \cdot B$) prevents artificial shade inflation where building shadows fall across tree crowns.
 - **5-Tier Building Height Confidence Hierarchy:**
@@ -54,8 +54,8 @@ ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application
   - North: `18.4675° N`
 - **Why this area was chosen:**
   1. **Connectivity:** 200 walkable highway ways forming a continuous connected graph of 698 nodes and 836 edges (23.6 km of pedestrian street network).
-  2. **Public Access:** 100% permitted public residential streets, footways, and crosswalks (unlike the restricted private institutional ways inside the VIT campus interior).
-  3. **High-Density Environmental Evidence:** 3,803 individual geo-tagged municipal trees with 3,752 measured canopy diameters from the official Pune Tree Census (average canopy diameter 4.25 m).
+  2. **Public Access Status:** Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`. No field validation has been conducted yet; routes are derived from public OpenStreetMap pedestrian ways.
+  3. **High-Density Environmental Evidence:** 3,738 active geo-tagged municipal trees (65 dead trees excluded) from the official Pune Tree Census (average canopy diameter 4.25 m).
   4. **Active Pedestrian Corridors:** Connects transit crossroads (Lake Town Junction, Swami Vivekanand Marg) to residential neighborhoods, community parks, clinics, and student entrances at VIT Pune Main Gate.
 
 ---
@@ -76,7 +76,7 @@ ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application
 
 | Layer | Source Authority | Capture Date | License | Attributes |
 | :--- | :--- | :--- | :--- | :--- |
-| **Tree Inventory** | Pune Municipal Corporation (PMC) Tree Census | August 2019 | Open Data Commons / Pune Civic Open Data | 3,803 trees: Species, Height, Canopy Dia, Condition, Ownership |
+| **Tree Inventory** | Pune Municipal Corporation (PMC) Tree Census | August 2019 | Open Data Commons / Pune Civic Open Data | 3,738 trees (65 dead excluded): Species, Height, Canopy Dia, Condition, Ownership |
 | **Pedestrian Network** | OpenStreetMap API Bounded Extract | November 2026 | Open Database License (ODbL) 1.0 | 200 ways, 698 nodes, 836 walkable edges |
 | **Building Footprints**| OpenStreetMap | November 2026 | ODbL 1.0 | 376 building polygons |
 | **Solar Calculations** | Astronomical Almanac Formulas | Computed (Pune 18.46°N) | MIT | Elevation, Azimuth, Shadow Vector |
@@ -164,7 +164,7 @@ A practical 5-minute judge demonstration script is provided in [DEMO_GUIDE.md](d
 │   │   │   ├── trees.json                                 # 3,803 tree point records
 │   │   │   ├── buildings.json                             # 376 building footprints
 │   │   │   └── landmarks.json                             # Verified navigation landmarks
-│   │   └── in-mh-pune-vit-bibwewadi/                      # Preserved pending-validation campus
+│   │   └── in-mh-pune-vit-bibwewadi/                      # Planned campus expansion
 │   └── osm/                                               # Preserved raw OSM extracts & metadata
 ├── docs/                                                  # Architecture & methodology documentation
 │   ├── ARCHITECTURE.md

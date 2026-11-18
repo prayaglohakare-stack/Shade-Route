@@ -1,6 +1,6 @@
 # VIT Bibwewadi field survey specification
 
-**Milestone:** field-verified corridor v1  
+**Milestone:** field survey protocol specification (unverified)  
 **Candidate:** VIT Library to VIT Canteen, subject to on-site confirmation  
 **Status:** collection protocol with retrospective qualitative observations; no GPS-verified geometry has been accepted
 
@@ -106,7 +106,7 @@ Use verification statuses:
 - `rejected`: found absent, impassable, incorrectly connected, or otherwise unsuitable; retain the record and reason, but exclude it from routing;
 - `stale`: a previously checked feature is known or reasonably suspected to have changed; exclude until rechecked.
 
-The current network schema's `field-verified` value should mean the equivalent of `independently-verified` for route publication, not merely “someone saw it.” Before data is serialized, reconcile these terms in the contract/schema so a validator can reject ambiguous states.
+The network schema distinguishes `unverified` and `field-verified` states. No edge may be published as field-verified until independent physical verification is conducted. Before data is serialized, reconcile these terms in the contract/schema so a validator can reject ambiguous states.
 
 ## 6. Preserve and combine OSM with survey evidence
 

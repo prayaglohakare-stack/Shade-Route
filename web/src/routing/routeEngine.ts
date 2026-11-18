@@ -18,6 +18,8 @@ export interface RouteMetrics {
   coveredPercentage: number;
   exposedMetres: number;
   exposedPercentage: number;
+  unknownMetres: number;
+  unknownPercentage: number;
   uncertainMetres: number;
   uncertainPercentage: number;
   detourPercentage: number; // % longer than shortest route
@@ -73,7 +75,7 @@ export function edgeLength(edge: CampusEdge): number {
 }
 
 export function isEdgePermitted(edge: CampusEdge): boolean {
-  return edge.accessStatus === 'permitted' && edge.verificationStatus !== 'closed';
+  return (edge.accessStatus === 'osm-derived' || edge.accessStatus === 'permitted') && edge.verificationStatus !== 'closed';
 }
 
 /**
@@ -122,6 +124,7 @@ function calculateRouteMetrics(
   let canopyDist = 0;
   let coveredDist = 0;
   let exposedDist = 0;
+  let unknownDist = 0;
   let uncertainDist = 0;
 
   let elapsedSeconds = 0;
@@ -138,6 +141,7 @@ function calculateRouteMetrics(
     const solarPos = calculateSolarPosition(currentHour, currentMin);
     const isCovered = edge.pathClass === 'covered-walkway';
     const shade = shadeMap.get(edge.edgeId);
+    const unknownFrac = shade?.unknownFraction ?? (shade?.status === 'unknown' ? 1.0 : 0.0);
 
     // Baseline fractions from bundle
     let treeFrac = shade?.treeShadeFraction ?? (shade?.shadeFraction ?? 0.0);
@@ -152,19 +156,23 @@ function calculateRouteMetrics(
     const shadowStretchFactor = Math.min(2.5, Math.max(0.6, currentMultiplier / noonMultiplier));
     const dynamicBldgFrac = Math.min(1.0, bldgFrac * shadowStretchFactor);
 
-    if (isCovered) {
+    if (unknownFrac >= 1.0) {
+      unknownDist += len;
+    } else if (isCovered) {
       coveredDist += len;
       combinedShadeDist += len;
     } else {
       // Non-double-counting union of building shadow and tree canopy
       // Overlap formula: Union(A, B) = A + B - (A * B)
-      const combinedFrac = Math.min(1.0, dynamicBldgFrac + treeFrac - (dynamicBldgFrac * treeFrac));
+      const rawCombined = Math.min(1.0, dynamicBldgFrac + treeFrac - (dynamicBldgFrac * treeFrac));
+      const effectiveCombined = Math.min(1.0 - unknownFrac, rawCombined);
       
-      const edgeCombinedShade = len * combinedFrac;
+      const edgeCombinedShade = len * effectiveCombined;
       combinedShadeDist += edgeCombinedShade;
-      buildingDist += len * dynamicBldgFrac;
-      canopyDist += len * treeFrac;
-      exposedDist += len * (1.0 - combinedFrac);
+      buildingDist += len * Math.min(1.0 - unknownFrac, dynamicBldgFrac);
+      canopyDist += len * Math.min(1.0 - unknownFrac, treeFrac);
+      unknownDist += len * unknownFrac;
+      exposedDist += len * Math.max(0.0, 1.0 - effectiveCombined - unknownFrac);
       uncertainDist += len * uncertainFrac;
     }
 
@@ -189,6 +197,8 @@ function calculateRouteMetrics(
     coveredPercentage: Math.round((coveredDist / distSafe) * 100),
     exposedMetres: Math.round(exposedDist),
     exposedPercentage: Math.round((exposedDist / distSafe) * 100),
+    unknownMetres: Math.round(unknownDist),
+    unknownPercentage: Math.round((unknownDist / distSafe) * 100),
     uncertainMetres: Math.round(uncertainDist),
     uncertainPercentage: Math.round((uncertainDist / distSafe) * 100),
     detourPercentage,

@@ -42,16 +42,17 @@
         "method": { "enum": ["field-observation", "geometry-model"] },
         "recordedAt": { "type": "string", "format": "date-time" },
         "sourceRef": { "$ref": "#/$defs/sourceRef" },
+        "unknownFraction": { "type": "number", "minimum": 0, "maximum": 1 },
         "unknownReason": { "type": "string", "minLength": 1 }
       },
       "allOf": [
         {
           "if": { "properties": { "status": { "enum": ["observed", "modeled"] } }, "required": ["status"] },
-          "then": { "required": ["shadeFraction", "method", "recordedAt", "sourceRef"], "not": { "required": ["unknownReason"] } }
+          "then": { "required": ["shadeFraction", "method", "recordedAt", "sourceRef"] }
         },
         {
           "if": { "properties": { "status": { "const": "unknown" } }, "required": ["status"] },
-          "then": { "not": { "anyOf": [{ "required": ["shadeFraction"] }, { "required": ["shadeFractionRange"] }, { "required": ["method"] }, { "required": ["sourceRef"] }] } }
+          "then": { "required": ["unknownFraction"] }
         }
       ],
       "additionalProperties": false

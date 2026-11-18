@@ -52,8 +52,8 @@
           "items": { "$ref": "#/$defs/coordinate" }
         },
         "pathClass": { "enum": ["footway", "path", "pedestrian", "steps", "covered-walkway", "service-road", "other"] },
-        "accessStatus": { "enum": ["permitted", "restricted", "unclear", "unknown"] },
-        "verificationStatus": { "enum": ["field-verified", "osm-unverified", "survey-added", "closed", "unknown"] },
+        "accessStatus": { "enum": ["osm-derived", "permitted", "restricted", "unclear", "unknown"] },
+        "verificationStatus": { "enum": ["unverified", "field-verified", "osm-unverified", "survey-added", "closed", "unknown"] },
         "sourceRef": { "$ref": "#/$defs/sourceRef" }
       },
       "additionalProperties": false

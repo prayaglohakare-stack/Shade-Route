@@ -44,7 +44,7 @@ function edgeLength(edge: CampusEdge): number {
 }
 
 function routeable(edge: CampusEdge): boolean {
-  return edge.accessStatus === 'permitted' && edge.verificationStatus === 'field-verified';
+  return (edge.accessStatus === 'osm-derived' || edge.accessStatus === 'permitted') && edge.verificationStatus !== 'closed';
 }
 
 function validGraph(network: RouteNetwork): boolean {
@@ -72,13 +72,17 @@ function metrics(edges: CampusEdge[], shadeRecords: ShadeRecord[], speedMps: num
     const distance = edgeLength(edge);
     const shade = shadeByEdge.get(edge.edgeId);
     distanceMetres += distance;
-    if ((shade?.status === 'observed' || shade?.status === 'modeled') &&
-        typeof shade.shadeFraction === 'number' && shade.shadeFraction >= 0 && shade.shadeFraction <= 1) {
-      shadedMetres += distance * shade.shadeFraction;
-      exposedMetres += distance * (1 - shade.shadeFraction);
-    } else {
-      unknownMetres += distance;
-    }
+    const uFrac = shade?.unknownFraction ?? (shade?.status === 'unknown' ? 1.0 : 0.0);
+    const sFrac = (shade?.status === 'observed' || shade?.status === 'modeled') && typeof shade.shadeFraction === 'number'
+      ? shade.shadeFraction
+      : 0.0;
+    const effectiveShade = Math.min(1.0 - uFrac, Math.max(0.0, sFrac));
+    const effectiveUnknown = Math.max(0.0, Math.min(1.0, uFrac));
+    const effectiveExposed = Math.max(0.0, 1.0 - effectiveShade - effectiveUnknown);
+
+    shadedMetres += distance * effectiveShade;
+    unknownMetres += distance * effectiveUnknown;
+    exposedMetres += distance * effectiveExposed;
   }
 
   return {

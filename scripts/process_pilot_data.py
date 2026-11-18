@@ -26,10 +26,11 @@ BBOX = {
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DATA_DIR = os.path.join(BASE_DIR, "data", "campuses", CAMPUS_ID)
 OSM_DIR = os.path.join(BASE_DIR, "data", "osm")
-SCRATCH_DIR = r"C:\Users\praya\.gemini\antigravity\brain\fbcc1459-6f1c-4b51-bfe5-23f0ad600bb8\scratch"
+RAW_DIR = os.path.join(BASE_DIR, "data", "raw")
 
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(OSM_DIR, exist_ok=True)
+os.makedirs(RAW_DIR, exist_ok=True)
 
 # -------------------------------------------------------------
 # Helper Functions: Metric Geometry
@@ -171,13 +172,16 @@ def interval_union(list_a, list_b):
 # -------------------------------------------------------------
 print("Step 1: Processing Pune Municipal Corporation Tree Census...")
 
-tree_csv_path = os.path.join(SCRATCH_DIR, "chintamani_bibwewadi_trees.csv")
+tree_csv_path = os.path.join(RAW_DIR, "chintamani_bibwewadi_trees.csv")
 if not os.path.exists(tree_csv_path):
     raise FileNotFoundError(f"Missing {tree_csv_path}")
 
 raw_trees = []
 canopy_features = []
 tree_features = []
+dead_trees_count = 0
+default_canopy_count = 0
+default_height_count = 0
 
 with open(tree_csv_path, 'r', encoding='utf-8', errors='ignore') as f:
     reader = csv.DictReader(f)
@@ -190,10 +194,16 @@ with open(tree_csv_path, 'r', encoding='utf-8', errors='ignore') as f:
         except (ValueError, KeyError):
             continue
 
+        condition = row.get('condition', 'Healthy') or 'Healthy'
+        if condition.strip().lower() == 'dead':
+            dead_trees_count += 1
+            continue
+
         tid = row.get('id') or row.get('saar_uid') or f"tree-{len(raw_trees)+1}"
         
         canopy_dia_m = 0.0
         canopy_valid = False
+        is_default_canopy = False
         try:
             cd = float(row.get('canopy_dia_m', 0))
             if 0.5 <= cd <= 35.0:
@@ -201,19 +211,29 @@ with open(tree_csv_path, 'r', encoding='utf-8', errors='ignore') as f:
                 canopy_valid = True
             else:
                 canopy_dia_m = 3.5
+                is_default_canopy = True
+                default_canopy_count += 1
         except:
             canopy_dia_m = 3.5
+            is_default_canopy = True
+            default_canopy_count += 1
 
         radius_m = canopy_dia_m / 2.0  # Diameter is diameter, radius is diameter / 2
         height_m = 5.0
+        is_default_height = False
         try:
             h = float(row.get('height_m', 0))
             if 1.0 <= h <= 60.0:
                 height_m = h
+            else:
+                height_m = 5.0
+                is_default_height = True
+                default_height_count += 1
         except:
-            pass
+            height_m = 5.0
+            is_default_height = True
+            default_height_count += 1
 
-        condition = row.get('condition', 'Healthy') or 'Healthy'
         common_name = row.get('common_name') or row.get('local_name') or 'Tree'
         botanical_name = row.get('botanical_name', '')
 
@@ -229,7 +249,9 @@ with open(tree_csv_path, 'r', encoding='utf-8', errors='ignore') as f:
             "common_name": common_name,
             "botanical_name": botanical_name,
             "ownership": row.get('ownership', 'Public'),
-            "canopy_valid": canopy_valid
+            "canopy_valid": canopy_valid,
+            "is_default_canopy": is_default_canopy,
+            "is_default_height": is_default_height
         }
         raw_trees.append(tree_record)
 
@@ -250,7 +272,9 @@ with open(tree_csv_path, 'r', encoding='utf-8', errors='ignore') as f:
                 "condition": condition,
                 "ownership": row.get('ownership', 'Unknown'),
                 "source": "PMC Tree Census 2019",
-                "confidence": "official-inventory"
+                "confidence": "official-inventory",
+                "isDefaultCanopy": is_default_canopy,
+                "isDefaultHeight": is_default_height
             }
         })
 
@@ -525,11 +549,43 @@ for w in walkable_ways:
             "toNodeId": v_id,
             "coordinates": [pt_u, pt_v],
             "pathClass": path_class,
-            "accessStatus": "permitted",
-            "verificationStatus": "field-verified",
+            "accessStatus": "osm-derived",
+            "verificationStatus": "unverified",
             "sourceRef": { "type": "osm", "sourceId": str(w['id']) }
         })
         total_net_len += seg_len
+
+        # Check coverage: Edge is unknown if midpoint lies outside tree/building BBOX
+        mid_lon = (pt_u[0] + pt_v[0]) / 2.0
+        mid_lat = (pt_u[1] + pt_v[1]) / 2.0
+        is_outside = not (BBOX["west"] <= mid_lon <= BBOX["east"] and BBOX["south"] <= mid_lat <= BBOX["north"])
+
+        if is_outside:
+            shade_records.append({
+                "edgeId": edge_id,
+                "validFrom": "2026-11-18T00:00:00+05:30",
+                "validUntil": "2026-11-18T23:59:59+05:30",
+                "status": "unknown",
+                "shadeFraction": 0.0,
+                "treeShadeFraction": 0.0,
+                "buildingShadeFraction": 0.0,
+                "coveredFraction": 0.0,
+                "unknownFraction": 1.0,
+                "shadeFractionRange": {
+                    "low": 0.0,
+                    "high": 0.0
+                },
+                "method": "geometry-model",
+                "recordedAt": "2026-11-18T00:00:00+05:30",
+                "sourceRef": {
+                    "type": "other",
+                    "sourceId": "combined-bldg-tree-model-v2"
+                },
+                "contributingSources": [],
+                "uncertainFraction": 1.0,
+                "unknownReason": "Edge midpoint lies outside the tree/building data coverage box"
+            })
+            continue
 
         p1_xy = to_local_xy(pt_u[0], pt_u[1])
         p2_xy = to_local_xy(pt_v[0], pt_v[1])
@@ -616,6 +672,7 @@ for w in walkable_ways:
             "treeShadeFraction": round(min(1.0, tree_frac), 3),
             "buildingShadeFraction": round(min(1.0, bldg_frac), 3),
             "coveredFraction": covered_frac,
+            "unknownFraction": 0.0,
             "shadeFractionRange": {
                 "low": round(max(0.0, combined_frac * 0.8), 3),
                 "high": round(min(1.0, combined_frac * 1.2), 3)
@@ -761,9 +818,10 @@ manifest = {
     ],
     "limitations": [
         "Building heights are classified using an explicit 5-tier confidence taxonomy; 376 footprints use calibrated architectural typologies and carry explicit uncertainty flags.",
-        "Tree coordinates and canopy diameters originate from the 2019 PMC Tree Census and may not capture recent changes.",
+        f"Tree coordinates and canopy diameters originate from the 2019 PMC Tree Census (excluding {dead_trees_count} dead trees). {default_canopy_count} trees use defaulted canopy diameter (3.5 m) and {default_height_count} trees use defaulted height (5.0 m).",
         "Combined shade represents the non-double-counted mathematical union of building-cast shadows, tree crowns, and covered walkways under modelled solar conditions.",
-        "Shade is not air temperature; calculations represent potential line-of-sight solar radiation protection."
+        "Shade is not air temperature; calculations represent potential line-of-sight solar radiation protection.",
+        "Every network edge is labelled osm-derived and unverified. No field validation has been conducted yet."
     ]
 }
 
@@ -791,13 +849,16 @@ def write_json(filename, data):
 write_json("manifest.json", manifest)
 write_json("network.json", network_data)
 write_json("shade.json", shade_data)
-write_json("canopy.json", {"type": "FeatureCollection", "features": canopy_features})
-write_json("trees.json", {"type": "FeatureCollection", "features": tree_features})
-write_json("buildings.json", {"type": "FeatureCollection", "features": building_features})
 write_json("canopy.geojson", {"type": "FeatureCollection", "features": canopy_features})
 write_json("trees.geojson", {"type": "FeatureCollection", "features": tree_features})
 write_json("buildings.geojson", {"type": "FeatureCollection", "features": building_features})
 write_json("landmarks.json", landmarks)
+
+# Remove legacy duplicate json files if present
+for dup in ["canopy.json", "trees.json", "buildings.json"]:
+    dup_path = os.path.join(DATA_DIR, dup)
+    if os.path.exists(dup_path):
+        os.remove(dup_path)
 
 # Update index registry
 index_path = os.path.join(BASE_DIR, "data", "campuses", "index.json")

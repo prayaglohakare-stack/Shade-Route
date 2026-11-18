@@ -21,7 +21,7 @@
         "name": { "type": "string", "minLength": 1 },
         "address": { "type": "string", "minLength": 1 },
         "timezone": { "type": "string", "minLength": 1 },
-        "dataStatus": { "enum": ["pending-validation", "available"] },
+        "dataStatus": { "enum": ["pending-validation", "available", "published", "planned"] },
         "manifestPath": { "type": "string", "minLength": 1 }
       },
       "allOf": [

@@ -19,8 +19,8 @@ Every environmental and network feature used in ShadeRoute adheres to strict lin
 - **Area Rationale:** 
   Selected over the restricted VIT campus interior because:
   1. High pedestrian connectivity: 200 walkable ways forming a 698-node connected pedestrian graph.
-  2. Public access certainty: Unrestricted municipal residential streets, public avenues, and pedestrian footways.
-  3. Abundant environmental evidence: 3,803 individual geo-tagged trees with 3,752 measured canopy diameters from the official Pune Tree Census.
+  2. Public access status: Unrestricted municipal residential streets, public avenues, and pedestrian footways (labelled osm-derived and unverified).
+  3. Abundant environmental evidence: 3,738 active geo-tagged trees (65 dead trees excluded) with measured canopy diameters from the official Pune Tree Census.
   4. Active pedestrian corridor connecting transit nodes (Lake Town Junction, Swami Vivekanand Marg) to student destinations (VIT Main Gate, parks, healthcare clinics).
 
 ---
@@ -94,8 +94,8 @@ Features in ShadeRoute are assigned explicit confidence categories rendered tran
    - Circular canopy crown polygons derived from measured canopy diameters ($R = D/2$).
    - Parametric line-segment canopy overlap percentages.
    - Solar shadow directional projections.
-4. **Field Verified (`field-verified`):**
-   - Verified pedestrian gates, landmark destinations (VIT Main Gate, Chintamani Garden, Jain Temple, Shree J Hospital), and public access status.
+4. **Unverified (`unverified`):**
+   - Every network edge is labelled `osm-derived` and `unverified`. No field validation has been conducted yet; landmark connections are snapped mathematically to nearest OSM nodes.
 5. **Unknown (`unknown`):**
    - Segments lacking tree data, microclimate ambient temperature, or recent unrecorded tree felling. Unknown is explicitly displayed as unknown; it is never converted into an assumption of shade or sun.
 

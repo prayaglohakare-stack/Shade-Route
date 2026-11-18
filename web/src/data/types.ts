@@ -5,7 +5,7 @@ export interface CampusEntry {
   name: string;
   address: string;
   timezone: string;
-  dataStatus: 'pending-validation' | 'available' | 'published';
+  dataStatus: 'pending-validation' | 'available' | 'published' | 'planned';
   dataRevision?: number;
 }
 
@@ -20,8 +20,8 @@ export interface CampusEdge {
   toNodeId: string;
   coordinates: Coordinate[];
   pathClass: string;
-  accessStatus: 'permitted' | 'restricted' | 'unclear' | 'unknown';
-  verificationStatus: 'field-verified' | 'osm-unverified' | 'survey-added' | 'closed' | 'unknown';
+  accessStatus: 'osm-derived' | 'permitted' | 'restricted' | 'unclear' | 'unknown';
+  verificationStatus: 'unverified' | 'field-verified' | 'osm-unverified' | 'survey-added' | 'closed' | 'unknown';
   sourceRef: { type: string; sourceId: string };
 }
 
@@ -42,6 +42,7 @@ export interface ShadeRecord {
   treeShadeFraction?: number; // Tree canopy contribution fraction
   buildingShadeFraction?: number; // Building shadow contribution fraction
   coveredFraction?: number; // Covered structures contribution fraction
+  unknownFraction?: number; // Fraction outside coverage box (never counted as exposed)
   uncertainFraction?: number; // Fraction dependent on Tier 4/5 estimates
   confidence?: string;
   isUncertain?: boolean;

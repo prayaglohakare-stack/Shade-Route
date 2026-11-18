@@ -394,7 +394,7 @@ export default function App() {
                       if (lm) handleLandmarkChosen(lm, 'origin');
                     }}
                   >
-                    <option value="" disabled>Select verified landmark...</option>
+                    <option value="" disabled>Select landmark destination...</option>
                     {landmarks.map((l) => (
                       <option key={l.id} value={l.id}>{l.name} ({l.category})</option>
                     ))}
@@ -448,7 +448,7 @@ export default function App() {
                       if (lm) handleLandmarkChosen(lm, 'destination');
                     }}
                   >
-                    <option value="" disabled>Select verified landmark...</option>
+                    <option value="" disabled>Select landmark destination...</option>
                     {landmarks.map((l) => (
                       <option key={l.id} value={l.id}>{l.name} ({l.category})</option>
                     ))}
@@ -554,6 +554,12 @@ export default function App() {
                         <small>EXPOSED</small>
                         <span>{routeResult.moreCanopy.metrics.exposedPercentage}%</span>
                       </div>
+                      {routeResult.moreCanopy.metrics.unknownPercentage > 0 && (
+                        <div className="metric-pill highlight-unknown">
+                          <small>UNKNOWN</small>
+                          <span>{routeResult.moreCanopy.metrics.unknownPercentage}%</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Source Breakdown Pill Bar */}
@@ -562,6 +568,9 @@ export default function App() {
                       <span className="breakdown-tag tree-tag">🌳 Trees: {routeResult.moreCanopy.metrics.canopyPercentage}%</span>
                       {routeResult.moreCanopy.metrics.coveredPercentage > 0 && (
                         <span className="breakdown-tag covered-tag">🏛️ Covered: {routeResult.moreCanopy.metrics.coveredPercentage}%</span>
+                      )}
+                      {routeResult.moreCanopy.metrics.unknownPercentage > 0 && (
+                        <span className="breakdown-tag unknown-tag">❓ Unknown: {routeResult.moreCanopy.metrics.unknownPercentage}%</span>
                       )}
                     </div>
 
@@ -600,11 +609,20 @@ export default function App() {
                         <small>EXPOSED</small>
                         <span>{routeResult.shortest.metrics.exposedPercentage}%</span>
                       </div>
+                      {routeResult.shortest.metrics.unknownPercentage > 0 && (
+                        <div className="metric-pill highlight-unknown">
+                          <small>UNKNOWN</small>
+                          <span>{routeResult.shortest.metrics.unknownPercentage}%</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="source-breakdown-row">
                       <span className="breakdown-tag bldg-tag">🏢 Buildings: {routeResult.shortest.metrics.buildingPercentage}%</span>
                       <span className="breakdown-tag tree-tag">🌳 Trees: {routeResult.shortest.metrics.canopyPercentage}%</span>
+                      {routeResult.shortest.metrics.unknownPercentage > 0 && (
+                        <span className="breakdown-tag unknown-tag">❓ Unknown: {routeResult.shortest.metrics.unknownPercentage}%</span>
+                      )}
                     </div>
 
                     <p className="card-explanation">{routeResult.shortest.explanation}</p>
@@ -642,11 +660,20 @@ export default function App() {
                         <small>EXPOSED</small>
                         <span>{routeResult.balanced.metrics.exposedPercentage}%</span>
                       </div>
+                      {routeResult.balanced.metrics.unknownPercentage > 0 && (
+                        <div className="metric-pill highlight-unknown">
+                          <small>UNKNOWN</small>
+                          <span>{routeResult.balanced.metrics.unknownPercentage}%</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="source-breakdown-row">
                       <span className="breakdown-tag bldg-tag">🏢 Buildings: {routeResult.balanced.metrics.buildingPercentage}%</span>
                       <span className="breakdown-tag tree-tag">🌳 Trees: {routeResult.balanced.metrics.canopyPercentage}%</span>
+                      {routeResult.balanced.metrics.unknownPercentage > 0 && (
+                        <span className="breakdown-tag unknown-tag">❓ Unknown: {routeResult.balanced.metrics.unknownPercentage}%</span>
+                      )}
                     </div>
 
                     <p className="card-explanation">{routeResult.balanced.explanation}</p>

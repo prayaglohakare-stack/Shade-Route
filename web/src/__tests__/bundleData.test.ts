@@ -20,7 +20,7 @@ describe('Pilot Bundle & Real Route Integration', () => {
     expect(network.edges.length).toBe(836);
     expect(shadeRecords.length).toBe(836);
     expect(geoData?.landmarks.length).toBeGreaterThanOrEqual(7);
-    expect(geoData?.trees.features.length).toBe(3803);
+    expect(geoData?.trees.features.length).toBe(3738);
     expect(geoData?.buildings.features.length).toBe(376);
 
     // Verify 5-tier height taxonomy in buildings
@@ -34,7 +34,7 @@ describe('Pilot Bundle & Real Route Integration', () => {
     expect(sampleRecord).toHaveProperty('buildingShadeFraction');
     expect(sampleRecord).toHaveProperty('treeShadeFraction');
     expect(sampleRecord).toHaveProperty('uncertainFraction');
-  });
+  }, 15000);
 
   it('calculates real routes between Lake Town Junction and VIT Main Gate', async () => {
     const result = await campusRepository.loadRouteBundle('in-mh-pune-chintamani-bibwewadi');

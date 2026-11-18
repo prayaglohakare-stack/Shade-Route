@@ -25,8 +25,8 @@ describe('Route Engine', () => {
       toNodeId: 'node-B',
       coordinates: [[73.865, 18.463], [73.866, 18.463]],
       pathClass: 'footway',
-      accessStatus: 'permitted',
-      verificationStatus: 'field-verified',
+      accessStatus: 'osm-derived',
+      verificationStatus: 'unverified',
       sourceRef: { type: 'osm', sourceId: '1' },
     },
     {
@@ -35,8 +35,8 @@ describe('Route Engine', () => {
       toNodeId: 'node-C',
       coordinates: [[73.866, 18.463], [73.867, 18.463]],
       pathClass: 'footway',
-      accessStatus: 'permitted',
-      verificationStatus: 'field-verified',
+      accessStatus: 'osm-derived',
+      verificationStatus: 'unverified',
       sourceRef: { type: 'osm', sourceId: '2' },
     },
     {
@@ -45,8 +45,8 @@ describe('Route Engine', () => {
       toNodeId: 'node-D',
       coordinates: [[73.865, 18.463], [73.866, 18.4635]],
       pathClass: 'footway',
-      accessStatus: 'permitted',
-      verificationStatus: 'field-verified',
+      accessStatus: 'osm-derived',
+      verificationStatus: 'unverified',
       sourceRef: { type: 'osm', sourceId: '3' },
     },
     {
@@ -55,8 +55,8 @@ describe('Route Engine', () => {
       toNodeId: 'node-C',
       coordinates: [[73.866, 18.4635], [73.867, 18.463]],
       pathClass: 'footway',
-      accessStatus: 'permitted',
-      verificationStatus: 'field-verified',
+      accessStatus: 'osm-derived',
+      verificationStatus: 'unverified',
       sourceRef: { type: 'osm', sourceId: '4' },
     },
     {
@@ -66,7 +66,7 @@ describe('Route Engine', () => {
       coordinates: [[73.865, 18.463], [73.867, 18.463]],
       pathClass: 'service-road',
       accessStatus: 'restricted', // Should be excluded!
-      verificationStatus: 'field-verified',
+      verificationStatus: 'unverified',
       sourceRef: { type: 'osm', sourceId: '5' },
     },
   ];

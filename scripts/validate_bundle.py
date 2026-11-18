@@ -56,8 +56,8 @@ def validate():
         assert e["fromNodeId"] in node_map, f"Edge {eid} references unknown fromNodeId {e['fromNodeId']}"
         assert e["toNodeId"] in node_map, f"Edge {eid} references unknown toNodeId {e['toNodeId']}"
         assert e["pathClass"] in ["footway", "path", "pedestrian", "steps", "covered-walkway", "service-road", "other"], f"Invalid pathClass {e['pathClass']}"
-        assert e["accessStatus"] in ["permitted", "restricted", "unclear", "unknown"], f"Invalid accessStatus {e['accessStatus']}"
-        assert e["verificationStatus"] in ["field-verified", "osm-unverified", "survey-added", "closed", "unknown"], f"Invalid verificationStatus {e['verificationStatus']}"
+        assert e["accessStatus"] in ["osm-derived", "permitted", "restricted", "unclear", "unknown"], f"Invalid accessStatus {e['accessStatus']}"
+        assert e["verificationStatus"] in ["unverified", "field-verified", "osm-unverified", "survey-added", "closed", "unknown"], f"Invalid verificationStatus {e['verificationStatus']}"
         coords = e["coordinates"]
         assert len(coords) >= 2, f"Edge {eid} has < 2 coordinates"
         # Check endpoints match nodes
@@ -87,6 +87,8 @@ def validate():
             assert 0 <= frac <= 1, f"Invalid shadeFraction {frac}"
             assert r["method"] in ["field-observation", "geometry-model"], f"Invalid method {r['method']}"
             assert "sourceRef" in r, "Missing sourceRef"
+        elif r["status"] == "unknown":
+            assert 0 <= r.get("unknownFraction", 1.0) <= 1, f"Invalid unknownFraction {r.get('unknownFraction')}"
 
     print(f"  [PASS] Shade records check: {len(shade_edge_ids)} records matching edges")
 

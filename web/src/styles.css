@@ -739,6 +739,19 @@ body {
   color: #047857;
 }
 
+.metric-pill.highlight-unknown {
+  background-color: #f1f5f9;
+}
+
+.metric-pill.highlight-unknown span {
+  color: #64748b;
+}
+
+.breakdown-tag.unknown-tag {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .card-explanation {
   font-size: 0.74rem;
   color: var(--color-text-muted);

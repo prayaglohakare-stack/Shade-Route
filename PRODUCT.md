@@ -24,7 +24,7 @@ ShadeRoute combines ordinary pedestrian routing with explicit evidence about sha
 
 ## Operating Context
 
-The first pilot is Vishwakarma Institute of Technology (VIT), Bibwewadi, Pune. The first application is a responsive web experience for desktop demonstrations and mobile use. Read-only campus data and route calculations should work offline once the app and selected campus data are available on the device.
+The active pilot is Chintamani Nagar — Bibwewadi Pedestrian Pilot (`in-mh-pune-chintamani-bibwewadi`), Pune. VIT Bibwewadi is a planned future expansion. The first application is a responsive web experience for desktop demonstrations and mobile use. Read-only campus data and route calculations work offline once the app and selected campus data are available on the device.
 
 ## Capabilities and Constraints
 
