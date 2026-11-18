@@ -39,6 +39,14 @@ describe('Curated Demo Trips Verification', () => {
       const { routes } = outcome;
       expect(routes.shortest.metrics.distanceMetres).toBeGreaterThanOrEqual(400);
 
+      // Phase B requirement: Every demo trip must have 0% unknown on both routes
+      expect(routes.shortest.metrics.unknownPercentage).toBe(0);
+      expect(routes.moreCanopy.metrics.unknownPercentage).toBe(0);
+
+      // Snap distance must be within <= 30 metres
+      expect(trip.origin.snapDistanceMetres).toBeLessThanOrEqual(30);
+      expect(trip.destination.snapDistanceMetres).toBeLessThanOrEqual(30);
+
       if (trip.tag === 'cooler-win') {
         // Cooler route must clearly win
         expect(routes.recommendedMode).toBe('more-canopy');
