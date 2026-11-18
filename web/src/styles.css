@@ -185,60 +185,72 @@ body {
   height: 100%;
 }
 
-/* Map Floating Layer Chips */
+/* Map Floating Layer Chips: One Horizontally Scrollable Row */
 .map-layer-chips-row {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 12px;
+  right: 12px;
   z-index: 1000;
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  max-width: 90%;
+  flex-direction: row;
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 2px 2px;
 }
 
+.map-layer-chips-row::-webkit-scrollbar {
+  display: none;
+}
+
+/* Layer Pills: Small, light, low-contrast when off; filled green when on */
 .layer-chip {
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(8px);
+  background: #ffffff;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-full);
-  padding: 6px 12px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--color-text-muted);
+  padding: 5px 12px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: #475569;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
-  transition: all 0.15s ease;
-  min-height: 36px;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 34px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .layer-chip:hover {
-  background-color: #ffffff;
+  background-color: var(--color-surface-hover);
   color: var(--color-text-main);
-  box-shadow: var(--shadow-md);
+  border-color: #cbd5e1;
 }
 
 .layer-chip.is-active {
   background-color: var(--color-primary);
   color: #ffffff;
-  border-color: var(--color-primary-dark);
+  border-color: var(--color-primary);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(22, 61, 50, 0.2);
 }
 
 .chip-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  background-color: #94a3b8;
+  transition: background-color 0.18s ease;
 }
 
-.chip-dot.shadow-dot { background-color: #1e293b; }
-.chip-dot.canopy-dot { background-color: #A8C99A; }
-.chip-dot.tree-dot { background-color: #285D49; }
-.chip-dot.bldg-dot { background-color: #cbd5e1; }
-.chip-dot.net-dot { background-color: #94a3b8; }
-.chip-dot.uncert-dot { background-color: #f59e0b; }
+.layer-chip.is-active .chip-dot {
+  background-color: var(--color-accent); /* Fresh sage green dot */
+}
 
 /* Selection Banner Overlay */
 .map-selection-banner {
@@ -290,22 +302,26 @@ body {
   100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
-/* Planner Panel (Desktop Sidebar) */
+/* Planner Panel (Desktop Sidebar: 400px wide, internal scroll, map never covered) */
 .planner-sheet {
-  width: 440px;
+  width: 400px;
+  min-width: 400px;
+  max-width: 400px;
   background-color: var(--color-surface);
   border-right: 1px solid var(--color-border);
+  border-top: none;
   display: flex;
   flex-direction: column;
-  z-index: 900;
-  box-shadow: var(--shadow-lg);
+  z-index: 10;
+  box-shadow: none;
   flex-shrink: 0;
   height: 100%;
+  position: static;
 }
 
 .sheet-handle-bar {
-  display: none; /* Only visible on mobile */
-  height: 24px;
+  display: none !important; /* Strictly hidden on desktop */
+  height: 28px;
   width: 100%;
   align-items: center;
   justify-content: center;
@@ -888,22 +904,23 @@ body {
 .headline-sun-metric {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 6px;
 }
 
 .sun-icon-mini {
-  font-size: 0.95rem;
+  font-size: 1.1rem;
 }
 
 .sun-metric-value {
-  font-size: 1.18rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: #0f172a;
   letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .sun-metric-label {
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
   color: #64748b;
 }
@@ -912,13 +929,14 @@ body {
   display: flex;
   align-items: baseline;
   gap: 6px;
-  font-size: 0.8rem;
+  font-size: 0.88rem;
   font-weight: 600;
   color: #475569;
 }
 
 .headline-distance-info .detour-delta {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 500;
   color: #64748b;
 }
 
@@ -1290,8 +1308,13 @@ body {
   background-color: var(--color-primary-dark);
 }
 
-/* Mobile & Responsive Bottom Sheet */
-@media (max-width: 900px) {
+/* Leaflet SVG smooth path transition (150-250ms) */
+.leaflet-pane svg path {
+  transition: stroke 0.2s ease, opacity 0.2s ease;
+}
+
+/* Mobile & Responsive Bottom Sheet (< 1024px) */
+@media (max-width: 1023px) {
   .workspace-main {
     flex-direction: column;
   }
@@ -1302,34 +1325,52 @@ body {
     left: 0;
     right: 0;
     width: 100%;
+    max-width: 100%;
+    min-width: 0;
     border-right: none;
     border-top: 1px solid var(--color-border);
     border-top-left-radius: 18px;
     border-top-right-radius: 18px;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-    z-index: 1500;
-    transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 1100;
+    transition: height 0.22s cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .sheet-handle-bar {
-    display: flex;
+    display: flex !important;
+    height: 28px;
+    padding: 8px 0;
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    touch-action: none;
   }
 
   .planner-sheet.snap-peek {
     height: 84px;
+    max-height: 84px;
   }
 
+  /* Default half snap: shows route cards or onboarding while keeping >= 40% viewport as map */
   .planner-sheet.snap-half {
-    height: 48vh;
+    height: 52vh;
+    max-height: 55vh;
   }
 
   .planner-sheet.snap-full {
     height: 86vh;
+    max-height: 88vh;
   }
 
+  /* Layer toggles: single horizontally scrollable row on mobile */
   .map-layer-chips-row {
     top: 10px;
+    left: 10px;
     right: 10px;
+    max-width: calc(100vw - 20px);
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
   }
 
   /* Minimum 44px touch targets on mobile */
@@ -1342,7 +1383,12 @@ body {
   .btn-primary,
   .btn-demo-trip,
   .btn-demo-pill,
-  .btn-select-demo {
+  .btn-select-demo,
+  .btn-primary-demo,
+  .btn-change-demo,
+  .btn-cancel,
+  .landmark-dropdown,
+  .preset-chip {
     min-height: 44px;
     min-width: 44px;
   }
@@ -1352,6 +1398,47 @@ body {
     right: 10px;
     width: auto;
     bottom: 95px;
+  }
+}
+
+/* Narrow Mobile Screens (390px and below): Logo, Demo button and tabs fit with no clipping or text wrapping */
+@media (max-width: 480px) {
+  .app-header {
+    padding: 0 10px;
+    gap: 4px;
+  }
+
+  .brand-group {
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .brand-title {
+    font-size: 0.98rem;
+  }
+
+  .brand-subtitle {
+    display: none; /* Hide subtitle on narrow screens so brand, demo button and tabs fit without clipping */
+  }
+
+  .header-nav-cluster {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .btn-demo-pill {
+    padding: 4px 10px;
+    font-size: 0.76rem;
+  }
+
+  .view-nav-tabs {
+    gap: 2px;
+    padding: 2px;
+  }
+
+  .view-tab-btn {
+    padding: 5px 8px;
+    font-size: 0.76rem;
   }
 }
 

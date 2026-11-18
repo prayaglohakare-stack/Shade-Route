@@ -52,9 +52,9 @@ export interface MapViewProps {
 function pinIcon(label: 'A' | 'B', color: string): L.DivIcon {
   return L.divIcon({
     className: 'custom-route-pin',
-    html: `<div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
-      <div style="background-color: ${color}; width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3); border: 2.5px solid #ffffff;">
-        <span style="transform: rotate(45deg); color: #ffffff; font-weight: 800; font-size: 14px; font-family: ui-sans-serif, system-ui, sans-serif;">${label}</span>
+    html: `<div style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 3px 6px rgba(0,0,0,0.35)); pointer-events: none;">
+      <div style="background-color: ${color}; width: 34px; height: 34px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); display: flex; align-items: center; justify-content: center; border: 2.5px solid #ffffff;">
+        <span style="transform: rotate(45deg); color: #ffffff; font-weight: 800; font-size: 15px; font-family: 'Inter', system-ui, sans-serif;">${label}</span>
       </div>
     </div>`,
     iconSize: [44, 44],
@@ -145,7 +145,8 @@ export function MapView({
     ).addTo(map);
 
     // Layer initialization
-    buildingShadowsLayerRef.current = L.layerGroup().addTo(map);
+    buildingShadowsLayerRef.current = L.layerGroup();
+    if (layers.buildingShadows) buildingShadowsLayerRef.current.addTo(map);
 
     buildingsLayerRef.current = L.geoJSON(undefined, {
       style: (feature) => {
@@ -157,7 +158,8 @@ export function MapView({
           fillOpacity: 0.9,
         };
       },
-    }).addTo(map);
+    });
+    if (layers.buildings) buildingsLayerRef.current.addTo(map);
 
     networkLayerRef.current = L.geoJSON(undefined, {
       style: (feature) => {
@@ -169,7 +171,8 @@ export function MapView({
           opacity: 0.65,
         };
       },
-    }).addTo(map);
+    });
+    if (layers.network) networkLayerRef.current.addTo(map);
 
     canopyLayerRef.current = L.geoJSON(undefined, {
       style: {
@@ -178,7 +181,8 @@ export function MapView({
         fillColor: '#A8C99A',
         fillOpacity: 0.35,
       },
-    }).addTo(map);
+    });
+    if (layers.canopy) canopyLayerRef.current.addTo(map);
 
     treesLayerRef.current = L.geoJSON(undefined, {
       pointToLayer: (_feature, latlng) => {
@@ -190,9 +194,12 @@ export function MapView({
           fillOpacity: 0.9,
         });
       },
-    }).addTo(map);
+    });
+    if (layers.trees) treesLayerRef.current.addTo(map);
 
-    uncertaintyLayerRef.current = L.layerGroup().addTo(map);
+    uncertaintyLayerRef.current = L.layerGroup();
+    if (layers.uncertainty) uncertaintyLayerRef.current.addTo(map);
+
     landmarksLayerRef.current = L.layerGroup().addTo(map);
     routesLayerRef.current = L.layerGroup().addTo(map);
     markersLayerRef.current = L.layerGroup().addTo(map);
@@ -322,7 +329,7 @@ export function MapView({
     shadowGroup.clearLayers();
     const solarPos = calculateSolarPosition(departureHour, departureMinute, dateInput);
 
-    // 1. Building Shadow Polygons
+    // 1. Building Shadow Polygons: translucent grey, no outlines
     const bldgFeatures = geoData.buildings?.features || [];
     for (const bldg of bldgFeatures) {
       if (bldg.geometry.type !== 'Polygon') continue;
@@ -333,15 +340,16 @@ export function MapView({
       const latLngs = shadowHull.map(([lon, lat]) => [lat, lon] as [number, number]);
 
       L.polygon(latLngs, {
+        stroke: false,
         color: 'transparent',
         weight: 0,
-        fillColor: '#163D32',
-        fillOpacity: 0.25,
+        fillColor: '#334155',
+        fillOpacity: 0.28,
         interactive: false,
       }).addTo(shadowGroup);
     }
 
-    // 2. Displaced Tree Crown Shadows
+    // 2. Displaced Tree Crown Shadows: translucent grey, no outlines
     const treeFeatures = geoData.trees?.features || [];
     for (const tree of treeFeatures) {
       if (tree.geometry.type !== 'Point') continue;
@@ -353,10 +361,11 @@ export function MapView({
       const crownShadow = projectTreeCrownShadow(coords, radiusM, heightM, solarPos);
       L.circle([crownShadow.center[1], crownShadow.center[0]], {
         radius: crownShadow.radiusM,
+        stroke: false,
         color: 'transparent',
         weight: 0,
-        fillColor: '#163D32',
-        fillOpacity: 0.20,
+        fillColor: '#334155',
+        fillOpacity: 0.22,
         interactive: false,
       }).addTo(shadowGroup);
     }
@@ -387,21 +396,24 @@ export function MapView({
 
   // 5. Toggle Layer Visibility
   useEffect(() => {
-    if (buildingsLayerRef.current) {
-      buildingsLayerRef.current.setStyle({ opacity: layers.buildings ? 1 : 0, fillOpacity: layers.buildings ? 0.9 : 0 });
-    }
-    if (networkLayerRef.current) {
-      networkLayerRef.current.setStyle({ opacity: layers.network ? 0.65 : 0 });
-    }
-    if (canopyLayerRef.current) {
-      canopyLayerRef.current.setStyle({ opacity: layers.canopy ? 1 : 0, fillOpacity: layers.canopy ? 0.35 : 0 });
-    }
-    if (treesLayerRef.current) {
-      treesLayerRef.current.setStyle({ opacity: layers.trees ? 1 : 0, fillOpacity: layers.trees ? 0.9 : 0 });
-    }
-    if (buildingShadowsLayerRef.current && !layers.buildingShadows) {
-      buildingShadowsLayerRef.current.clearLayers();
-    }
+    const map = mapRef.current;
+    if (!map) return;
+
+    const syncLayer = (group: L.Layer | null, isVisible: boolean) => {
+      if (!group) return;
+      if (isVisible && !map.hasLayer(group)) {
+        map.addLayer(group);
+      } else if (!isVisible && map.hasLayer(group)) {
+        map.removeLayer(group);
+      }
+    };
+
+    syncLayer(buildingShadowsLayerRef.current, layers.buildingShadows);
+    syncLayer(buildingsLayerRef.current, layers.buildings);
+    syncLayer(networkLayerRef.current, layers.network);
+    syncLayer(canopyLayerRef.current, layers.canopy);
+    syncLayer(treesLayerRef.current, layers.trees);
+    syncLayer(uncertaintyLayerRef.current, layers.uncertainty);
   }, [layers]);
 
   // 6. Render Active Route & Alternative Route
@@ -410,27 +422,43 @@ export function MapView({
     if (!routeGroup) return;
     routeGroup.clearLayers();
 
-    // Alternative Route
+    // Alternative Route: distinct colours matching route cards with white casing
     if (alternativeRoute && alternativeRoute.coordinates.length >= 2 && !alternativeRoute.isCoincidentWithShortest) {
       const altLatLngs = alternativeRoute.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]);
+
+      // White casing for alternative route
       L.polyline(altLatLngs, {
-        color: '#64748b',
-        weight: 6,
-        opacity: 0.45,
-        dashArray: '7 7',
+        color: '#ffffff',
+        weight: 8,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(routeGroup);
+
+      const altColor = alternativeRoute.mode === 'shortest'
+        ? '#f97316'
+        : alternativeRoute.mode === 'balanced'
+        ? '#285D49'
+        : '#163D32';
+
+      L.polyline(altLatLngs, {
+        color: altColor,
+        weight: 4.5,
+        opacity: 0.9,
+        dashArray: '6 6',
         lineCap: 'round',
       }).addTo(routeGroup);
     }
 
-    // Active Route
+    // Active Route: thick line with white casing so it stands out on any layer
     if (activeRoute && activeRoute.coordinates.length >= 2) {
       const latLngs = activeRoute.coordinates.map(([lon, lat]) => [lat, lon] as [number, number]);
 
-      // Route casing
+      // Thick white casing
       L.polyline(latLngs, {
         color: '#ffffff',
-        weight: 8,
-        opacity: 0.92,
+        weight: 9,
+        opacity: 0.95,
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(routeGroup);
@@ -444,7 +472,7 @@ export function MapView({
       L.polyline(latLngs, {
         color: routeColor,
         weight: 5.5,
-        opacity: 0.95,
+        opacity: 1.0,
         lineCap: 'round',
         lineJoin: 'round',
       }).addTo(routeGroup);
@@ -454,7 +482,7 @@ export function MapView({
     }
   }, [activeRoute, alternativeRoute, activeMode]);
 
-  // 7. Render Origin & Destination Markers + Snap Lines
+  // 7. Render Origin & Destination Markers + Snap Lines (always above other layers)
   useEffect(() => {
     const markerGroup = markersLayerRef.current;
     if (!markerGroup) return;
@@ -465,7 +493,7 @@ export function MapView({
       L.marker(originLatLng, {
         icon: pinIcon('A', '#163D32'),
         title: origin.label,
-        zIndexOffset: 1000,
+        zIndexOffset: 2000,
       }).addTo(markerGroup);
 
       if (origin.snappedCoordinates) {
@@ -483,7 +511,7 @@ export function MapView({
       L.marker(destLatLng, {
         icon: pinIcon('B', '#e11d48'),
         title: destination.label,
-        zIndexOffset: 1000,
+        zIndexOffset: 2000,
       }).addTo(markerGroup);
 
       if (destination.snappedCoordinates) {

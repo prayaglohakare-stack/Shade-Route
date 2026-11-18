@@ -52,9 +52,9 @@ export default function App() {
   // Map Layer toggles
   const [layers, setLayers] = useState<MapLayerVisibility>({
     buildingShadows: true,
-    canopy: true,
-    trees: true,
-    buildings: true,
+    canopy: false,
+    trees: false,
+    buildings: false,
     network: true,
     uncertainty: false,
   });
@@ -286,7 +286,7 @@ export default function App() {
           </div>
           <div>
             <h1 className="brand-title">ShadeRoute</h1>
-            <span className="brand-subtitle">Bibwewadi Pilot · Pune</span>
+            <span className="brand-subtitle">Bibwewadi, Pune</span>
           </div>
         </div>
 
