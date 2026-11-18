@@ -16,11 +16,11 @@ Pedestrians at the VIT Bibwewadi campus who want to compare walking routes by di
 
 ## Product Purpose
 
-ShadeRoute helps people choose a cooler-feeling walking route by showing distance, estimated walking time, and the shade evidence available for each route. It must not present shade as measured temperature.
+ShadeRoute is a direct-sun exposure and shade estimation tool, not an ambient air temperature prediction tool. It helps pedestrians compare walking routes by distance, estimated walking time, and the direct solar radiation obstruction available for each route. It must not present shade as measured temperature.
 
 ## Positioning
 
-ShadeRoute combines ordinary pedestrian routing with explicit evidence about shade coverage and unknown coverage. Route and shade claims must be traceable to a published campus data bundle and its provenance.
+ShadeRoute combines pedestrian routing with explicit evidence about direct solar shade coverage and unknown coverage. No field validation has been performed; all network edges and landmarks are unverified and derived from OpenStreetMap geometry and the 2019 PMC tree census. Route and shade claims must be traceable to a published campus data bundle and its provenance.
 
 ## Operating Context
 
@@ -46,7 +46,7 @@ The active pilot is Chintamani Nagar — Bibwewadi Pedestrian Pilot (`in-mh-pune
 
 ## Product Principles
 
-1. Show only sourceable or physically verified geography.
+1. Show only sourceable geography; no field validation has been performed, and all paths are explicitly labelled unverified.
 2. Keep route, shade, and uncertainty evidence separate and explainable.
 3. Never translate unknown coverage into sun exposure or shade.
 4. Keep the read-only routing experience independent from future report submission.

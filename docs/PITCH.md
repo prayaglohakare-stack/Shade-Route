@@ -25,13 +25,13 @@ This document contains the official presentation script, hackathon slide outline
 
 ---
 
-### [00:54 – 01:12] Beat 4: The Evidence Ribbon & Empirical Claim
-> *"Every route card features a dual-metric Shade Ribbon separating building shadows from tree canopies. And we are scientifically honest about our numbers: across 300 random trips evaluated on our pilot network, ShadeRoute finds a cooler alternative saving at least one minute of sun on 17.3% of trips, with a median detour of just +3.7%. On the other 82.7% of trips, we plainly tell the pedestrian that the shortest route is already optimal."*
+### [00:54 – 01:12] Beat 4: The Evidence Ribbon & Simulated Benchmark Claim
+> *"Every route card features a dual-metric Shade Ribbon separating building shadows from tree canopies. And we are scientifically honest about our numbers: across a simulated routing benchmark of 300 random trips evaluated on our pilot network, ShadeRoute finds a cooler alternative saving at least one minute of sun on 17.3% of trips, with a median detour of just +3.7%. On the other 82.7% of trips, we plainly tell the pedestrian that the shortest route is already optimal."*
 
 ---
 
 ### [01:12 – 01:30] Beat 5: The Honest Close
-> *"We do not claim that shade reduces air temperature—it blocks direct radiant flux. And all data shown is modelled from OpenStreetMap and the 2019 PMC tree census, not field-verified. **Modelled, not measured. Field validation is our next step.** Thank you."*
+> *"ShadeRoute is a direct-sun exposure and shade estimation tool, not a temperature prediction tool: shade blocks direct radiant flux (~800 to 1,000 W/m² in Pune), it does not change ambient air temperature. No field validation has been performed; all data is modelled from OpenStreetMap and the 2019 PMC tree census. Modelled, not measured. Field validation is our next step. Thank you."*
 
 ---
 
@@ -48,11 +48,11 @@ This document contains the official presentation script, hackathon slide outline
 |  - Thermal discomfort is driven by radiant flux  |  - Displaced PMC tree crown geometry by height & crown radius   |
 |  - Static "shade" tags fail as the sun moves     |  - Dynamic edge arrival time slot interpolation (7:00 to 17:00) |
 +--------------------------------------------------+-----------------------------------------------------------------+
-|  3. EMPIRICAL BENCHMARKS (300 Random Trips >= 400m)| 4. SCIENTIFIC HONESTY & ROADMAP                               |
+|  3. SIMULATED BENCHMARKS (300 Random Trips >=400m)| 4. SCIENTIFIC HONESTY & ROADMAP                               |
 |  - Win Rate: 17.3% of trips save >= 1.0 min sun  |  - Shade != Ambient Air Temperature (radiant flux reduction)    |
 |    (8% at solar noon, 36.3% in afternoon)        |  - Zero fake data: 100% unverified OSM & 2019 PMC census        |
 |  - Median Detour on Winners: +3.7% (+32 to +68 m)|  - Honest baseline: 82.7% of trips shortest is already optimal  |
-|  - 0.0% unknown edge length loophole             |  - Next Milestone: Ground-truth sensor pyranometer validation   |
+|  - 0.0% unknown edge length loophole             |  - No field validation performed: Ground-truth sensor is next   |
 +--------------------------------------------------+-----------------------------------------------------------------+
 ```
 

@@ -18,8 +18,8 @@ Every environmental and network feature used in ShadeRoute adheres to strict lin
   - North Latitude: `18.4675° N`
 - **Area Rationale:** 
   Selected over the restricted VIT campus interior because:
-  1. High pedestrian connectivity: 200 walkable ways forming a 698-node connected pedestrian graph.
-  2. Public access status: Unrestricted municipal residential streets, public avenues, and pedestrian footways (labelled osm-derived and unverified).
+  1. High pedestrian connectivity: 457 nodes and 584 walkable edges forming 17.11 km of connected pedestrian network.
+  2. Public access status: Unrestricted municipal residential streets, public avenues, and pedestrian footways (labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`; no field validation has been performed).
   3. Abundant environmental evidence: 3,738 active geo-tagged trees (65 dead trees excluded) with measured canopy diameters from the official Pune Tree Census.
   4. Active pedestrian corridor connecting transit nodes (Lake Town Junction, Swami Vivekanand Marg) to student destinations (VIT Main Gate, parks, healthcare clinics).
 
@@ -54,11 +54,13 @@ Every environmental and network feature used in ShadeRoute adheres to strict lin
 - **Archive SHA-256 Checksum:** `FA21890250E8DE088033621471375B8D148BDDC0C7F9DE11762B34B4582C0EBA`
 - **Licensing:** Open Database License (ODbL) 1.0. Attribution required: `© OpenStreetMap contributors`.
 - **Network Scope:**
-  - Total nodes in snapshot: 3,363
-  - Total ways in snapshot: 627
-  - Walkable pedestrian highways extracted: 200 ways
-  - Largest connected graph component: 698 nodes, 836 edges (23.6 km of pedestrian path).
+  - Total nodes in raw snapshot: 3,363
+  - Total ways in raw snapshot: 627
+  - Clipped routable pilot component: 457 nodes, 584 walkable edges (17.11 km of pedestrian path).
   - Building footprints: 376 mapped building polygons.
+  - Data coverage: 100% building and tree data coverage (0.0% unknown edge length).
+  - Field validation status: **No field validation has been performed.** All edges are `unverified` and `osm-derived`.
+  - Tool definition: ShadeRoute is a direct-sun/shade estimation tool, not an ambient air temperature prediction tool.
 
 ### C. Building Heights & 5-Tier Confidence Taxonomy
 Building-cast shadow calculations require 3D building envelopes. To avoid arbitrary default heights, ShadeRoute implements an explicit 5-tier source hierarchy:

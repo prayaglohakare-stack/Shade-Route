@@ -7,10 +7,12 @@ The ShadeRoute routing engine is a **pure, zero-dependency browser-side graph mo
 ### Core Architectural Principles
 1. **Combined Built and Natural Intelligence:** Pedestrian route optimization treats building-cast shadows, tree canopies, and permanent coverings as independent, first-class contributors to pedestrian protection.
 2. **Dynamic Departure-Time Progression:** Each street segment is evaluated at the exact solar timestamp the pedestrian is projected to reach it based on walking velocity, rather than assuming static solar conditions throughout the walk.
-3. **Network Integrity:** Routes are computed strictly over a topological graph of verified pedestrian nodes and edges. Geometry lines crossing visually on a map never generate shortcuts without an explicit connecting junction.
-4. **Access-First Principle:** No route will ever guide a pedestrian through a restricted, private, or prohibited path simply to gain shade.
-5. **Detour Prudence:** Shading preferences are bounded by strict detour limits so pedestrians are never sent on disproportionate diversions.
-6. **Honest Coincidence:** When two routing modes select the identical physical edge sequence, the engine explicitly reports them as coincident rather than manufacturing artificial differences.
+3. **Network Integrity:** Routes are computed strictly over a topological graph of OpenStreetMap pedestrian nodes and edges (`verificationStatus: "unverified"`; no field validation has been performed). Geometry lines crossing visually on a map never generate shortcuts without an explicit connecting junction.
+4. **Access-First Principle:** No route will ever guide a pedestrian through a restricted, private, or prohibited path simply to gain shade. Every edge is labelled `accessStatus: "osm-derived"`.
+5. **Direct-Sun Estimation (Not Temperature Prediction):** ShadeRoute estimates minutes in direct sun (solar beam irradiance blockage), not ambient air temperature or microclimate cooling.
+6. **Detour Prudence:** Shading preferences are bounded by strict detour limits so pedestrians are never sent on disproportionate diversions.
+7. **Honest Coincidence:** When two routing modes select the identical physical edge sequence, the engine explicitly reports them as coincident rather than manufacturing artificial differences.
+8. **No Field Validation Performed:** All route calculations are based on OpenStreetMap geometries, Pune Municipal Corporation tree census records, and NOAA solar position projections. Ground-truth field validation has not been performed.
 
 ---
 
@@ -25,7 +27,7 @@ From OpenStreetMap highway geometries filtered to the Chintamani Nagar & Bibwewa
   - Junctions are extracted from shared OSM node IDs.
   - Intermediate vertices along ways are retained as coordinate arrays to ensure accurate Haversine physical curve lengths.
   - Edges are bidirectional for pedestrian walking unless marked `oneway:foot=yes`.
-  - Component analysis isolates the primary connected component (**698 nodes, 836 edges, 23.6 km**).
+  - Component analysis isolates the primary connected component within the data-covered boundary (**457 nodes, 584 edges, 17.11 km**).
 
 ---
 

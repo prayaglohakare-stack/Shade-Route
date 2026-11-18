@@ -1,6 +1,6 @@
-# ShadeRoute Empirical Performance Claims (Bibwewadi Pilot)
+# ShadeRoute Simulated Routing Benchmark Claims (Bibwewadi Pilot)
 
-This document establishes the **only permitted performance claims** for ShadeRoute presentations, pitches, and documentation. All statistics are empirically derived from 300 reproducible random origin-destination pairs on the clipped pilot pedestrian network.
+This document establishes the **only permitted performance claims** for ShadeRoute presentations, pitches, and documentation. All statistics are derived from a simulated routing benchmark across 300 reproducible random origin-destination pairs on the clipped pilot pedestrian network. No field validation has been performed. ShadeRoute is a direct-sun/shade estimation tool, not a temperature prediction tool.
 
 - **Generated**: 2026-11-18 10:01 UTC
 - **Commit**: `1190e9e99ce73c18cd53a74af9169e960d8e7790`
@@ -52,6 +52,7 @@ This document establishes the **only permitted performance claims** for ShadeRou
    - Building shadows projected via $L = H / \tan(\alpha)$ along azimuth $+ 180^\circ$.
    - Tree crown shadows projected as displaced circles based on individual tree height and canopy radius.
    - Slot interpolation: hourly slots evaluated dynamically at the estimated timestamp when the pedestrian arrives at each edge.
-4. **Data Honesty Invariant**:
+5. **Data Honesty Invariant**:
    - Verification status: All edges remain labeled `verificationStatus: "unverified"` and `accessStatus: "osm-derived"`.
-   - Shade model: Models direct solar irradiance blockage (radiant heat reduction), NOT ambient air temperature. No claims of microclimate temperature reduction or field verification are made.
+   - No field validation has been performed: All pedestrian ways, building heights, tree canopies, and shade values are derived from OpenStreetMap geometry and the 2019 PMC tree census.
+   - Direct-sun estimation only: ShadeRoute is a direct-sun exposure and shade estimation tool, NOT a temperature prediction tool. Models direct solar irradiance blockage (radiant heat reduction), NOT ambient air temperature. No claims of microclimate temperature reduction or field verification are made.

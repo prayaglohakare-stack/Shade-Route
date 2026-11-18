@@ -2,27 +2,27 @@
 
 ## 1. Current Scientific & Technical Limitations
 
-Transparency is a fundamental core principle of ShadeRoute. Below is the complete record of verified constraints in the MVP:
+Transparency is a fundamental core principle of ShadeRoute. Below is the complete record of known technical constraints in the MVP:
 
 ### A. Environmental Data Limitations
 1. **Tree Census Age (2019):**
-   - The municipal tree records for Pune originate from the 2019 PMC Tree Census. While it provides high-density coordinates and measured canopy diameters for 3,803 trees in our pilot, trees planted, trimmed, pruned, or felled between 2019 and 2026 are not captured.
+   - The municipal tree records for Pune originate from the 2019 PMC Tree Census. While it provides high-density coordinates and measured canopy diameters for 3,738 active trees (65 dead excluded) in our pilot, trees planted, trimmed, pruned, or felled between 2019 and 2026 are not captured.
 2. **Crown Geometry Approximation:**
    - Crowns are modeled geometrically as regular circular polygons based on `canopy_dia_m / 2`. In reality, urban tree canopies exhibit asymmetrical foliage distribution, varying leaf area index (LAI), and seasonal deciduous defoliation.
-3. **No Direct Ambient Temperature Measurement:**
-   - ShadeRoute does not measure microclimate air temperatures. Canopy overlap indicates direct solar radiation interception, which significantly reduces human mean radiant temperature (MRT) and heat stress, but does not guarantee a specific thermodynamic temperature drop (e.g. "30% cooler").
+3. **Direct-Sun Estimation Only (No Direct Ambient Temperature Measurement):**
+   - ShadeRoute is a direct-sun and shade estimation tool, NOT an ambient air temperature prediction tool. It does not measure or predict microclimate air temperatures. Canopy overlap indicates direct shortwave solar radiation interception (~800–1,000 W/m² in Pune), which significantly reduces human mean radiant temperature (MRT) and heat stress, but does not guarantee a specific thermodynamic temperature drop (e.g. "30% cooler").
 4. **Missing Vertical Foliage Information:**
    - While tree height is recorded, the distance from the ground to the base of the crown (trunk clearance) is not recorded in the municipal census.
 
 ### B. Routing & Network Limitations
 1. **Static OpenStreetMap Network:**
-   - Pedestrian routing relies on OSM public highway geometry. Temporary physical impediments (construction blockades, temporary gate locks, potholes, water-logging during monsoons) are not reflected without real-time crowdsourcing or municipal integration.
+   - Pedestrian routing relies on OSM public highway geometry (457 nodes, 584 edges, 17.11 km). Temporary physical impediments (construction blockades, temporary gate locks, potholes, water-logging during monsoons) are not reflected without real-time crowdsourcing or municipal integration.
 2. **Elevation & Incline:**
    - The routing engine models 2D horizontal network distance and does not yet penalize steep pedestrian stairways or slopes in walking effort calculations.
 
 ### C. Validation Status & Honest Model Disclosure
-1. **Modelled Estimates — No Field Validation:**
-   - Shade estimates are modelled from OpenStreetMap footprints, estimated building heights and the 2019 PMC tree census. **No field validation has been done yet.**
+1. **Modelled Estimates — No Field Validation Has Been Performed:**
+   - **No field validation has been performed.** All network edges, building heights, tree canopies, and shade values are derived from OpenStreetMap geometry, PMC 2019 tree census records, and astronomical solar algorithms. No physical ground-truth survey, sensor measurement, or field audit has been conducted.
    - Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`.
    - No fake or placeholder ground observation data or observation files are created.
 2. **Field Validation Roadmap:**

@@ -26,7 +26,7 @@ The registry at `data/campuses/index.json` may list a campus before its routeabl
 `manifest.json` contains:
 
 - `schemaVersion`, `campusId`, `dataRevision`, and ISO 8601 `publishedAt`.
-- `campus`: stable display name, postal address, IANA timezone, and optional verified centre and bounds.
+- `campus`: stable display name, postal address, IANA timezone, and optional centre and bounds.
 - `files`: relative paths for `network.json` and optional `shade.json`.
 - `sources`: source name/type, capture date when known, licence and required attribution text; include a stable `sourceId` and source URL when available.
 - `limitations`: concise known gaps or verification notes.

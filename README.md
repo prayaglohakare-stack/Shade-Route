@@ -2,12 +2,16 @@
 
 **Take the cooler way.**
 
-ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application that helps people choose walking routes with lower direct sun exposure. Conventional navigation applications optimize solely for vehicle travel time or shortest physical distance. ShadeRoute evaluates pedestrian pathways against physical environmental data—combining building-cast shadows, municipal tree canopies, covered walkways, and dynamic solar angles—to help pedestrians understand environmental trade-offs between alternative routes.
+ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application that operates strictly as a **direct-sun exposure and shade estimation tool**, not a temperature prediction tool. Conventional navigation applications optimize solely for vehicle travel time or shortest physical distance. ShadeRoute evaluates pedestrian pathways against physical environmental data—combining building-cast shadows, municipal tree canopies, covered walkways, and dynamic solar angles—to estimate cumulative minutes spent in direct sunlight and help pedestrians understand trade-offs between alternative routes.
+
+> **Important Validation Notice:** **No field validation has been performed.** All network edges, building heights, tree canopies, and shade values are derived from OpenStreetMap geometry, PMC 2019 tree census records, and astronomical solar algorithms. No physical ground-truth survey, sensor measurement, or field audit has been conducted. All edges and landmarks are unverified.
 
 ---
 
 ## 1. Key Features
 
+- **Direct-Sun & Shade Estimation (Not Temperature Prediction):**
+  - ShadeRoute estimates direct shortwave solar radiation obstruction (~800–1,000 W/m² direct radiant flux blockage in Pune), reducing mean radiant heat exposure. It does **not** predict ambient air temperature, microclimate thermodynamic variations, or surface temperatures.
 - **Combined Built & Natural Environment Intelligence:**
   - **Building-Cast Shadows:** Dynamic ground shadow polygons computed via 2D convex hulls of building base and roof projections according to real-time astronomical solar position.
   - **Tree-Canopy Shadows:** Circular crowns ($R = D/2$) derived from 3,738 active municipal tree records (excluding dead trees) with measured canopy diameters.
@@ -32,18 +36,18 @@ ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application
   - Sun minutes saved and detour percentage vs shortest route
   - Combined shade coverage (percentage and metres)
   - Independent breakdown: Building Shade % vs Tree Canopy % vs Covered Walkway %
-  - Unknown coverage % (midpoints outside data coverage box, never counted as exposed)
+  - Unknown coverage % (midpoints outside data coverage box, never counted as exposed; 0.0% in current clipped pilot)
   - Uncertainty percentage (share of route reliant on Tier 4/5 height assumptions)
   - Honest recommendation: If cooler route gains less than 1.0 minute in direct sun, it states plainly *"Shortest route is already about as shaded"*.
 - **Curated Demonstration Trips:**
-  - 3 trips where the cooler route clearly wins (saving 1.2 to 2.6 minutes in direct sun within 25% detour)
+  - 3 trips where the cooler route clearly wins (saving 1.2 to 1.8 minutes in direct sun within 25% detour)
   - 1 trip where the shortest route is optimal / about as shaded (honestly recommending shortest with no detour)
 - **Interactive Multi-Layer Cartography & Scrubber:**
   - Semicircular sun-arc scrubber controlling time of day (07:00 to 17:00) with live solar altitude/azimuth readouts and Nov/Apr season toggle.
   - Proportional shade ribbons on route cards displaying sunny, shaded, and hatched unknown fractions.
   - Independent layer toggles: 🏢 Building Shadows, 🌳 Tree Crowns, 📍 Tree Trunks, 🏛️ Buildings, 🚶 Street Network, ❓ Height Uncertainty.
 - **Scientific Honesty & Validation Status:**
-  - Shade estimates are modelled from OpenStreetMap footprints, estimated building heights and the 2019 PMC tree census. **No field validation has been done yet.**
+  - **No field validation has been performed.** All network edges, building heights, tree canopies, and shade values are model estimates.
   - Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`.
   - Zero fake or placeholder observation data or observation files.
   - Explains plainly that shade is radiant heat blockage, not ambient air temperature.
@@ -96,15 +100,15 @@ Detailed documentation: [DATA_PROVENANCE.md](docs/DATA_PROVENANCE.md).
 
 ShadeRoute adheres strictly to transparent, auditable science:
 
-1. **Modelled, Not Measured:** No physical ground-truth sensor verification has been performed. All shadows and crowns are geometric projections.
-2. **Shade $\ne$ Ambient Air Temperature:** Shade reduces direct shortwave radiant flux (~800–1,000 W/m² in Pune), reducing Mean Radiant Temperature and thermal strain. Ambient air temperature remains roughly identical in shaded and sunlit street corridors.
+1. **No Field Validation Performed:** No physical ground-truth sensor verification, field survey, or shade measurements have been performed. All shadows, tree crowns, and pathway edges are model projections.
+2. **Direct-Sun Estimation (Shade $\ne$ Ambient Air Temperature):** Shade reduces direct shortwave radiant flux (~800–1,000 W/m² in Pune), reducing Mean Radiant Temperature and thermal strain. ShadeRoute does NOT predict ambient air temperature, which remains roughly identical in shaded and sunlit street corridors.
 3. **Census Vintage (2019):** Tree records originate from the 2019 PMC Tree Census. While dead trees are excluded and defaulted canopies flagged, sapling growth, canopy trimming, or tree removals since 2019 are not captured in the dataset.
 4. **Estimated Building Heights:** Where OpenStreetMap lacks explicit `height` or `building:levels` tags, heights are estimated using Tier-4 typology averages calibrated for Bibwewadi residential buildings.
 5. **Seasonal Calibration:** The solar shadow model is calibrated specifically for November winter sun and April summer near-zenith sun.
 6. **Zero Unknown Inflation:** In the clipped pilot network, 100% of edges lie within data coverage (0.0% unknown). Any remaining unknown length is strictly counted as fully sunny in routing costs and metrics.
 7. **Evening Clamping:** Departure walks reaching edges after 17:00 IST are clamped to the 17:00 sunset slot and flagged with a visible note in route cards.
 
-Empirical performance benchmarks across 300 random trips: see [docs/CLAIM_STATS.md](docs/CLAIM_STATS.md).
+Simulated routing benchmark across 300 random trips: see [docs/CLAIM_STATS.md](docs/CLAIM_STATS.md).
 
 ---
 
@@ -180,33 +184,48 @@ A practical 5-minute judge demonstration script is provided in [DEMO_GUIDE.md](d
 │   ├── campuses/
 │   │   ├── index.json                                     # Campus registry
 │   │   ├── in-mh-pune-chintamani-bibwewadi/               # Published pilot area bundle
-│   │   │   ├── manifest.json
-│   │   │   ├── network.json                               # 698 nodes, 836 walkable edges
-│   │   │   ├── shade.json                                 # 836 edge shade records
-│   │   │   ├── canopy.json                                # 3,803 crown polygons
-│   │   │   ├── trees.json                                 # 3,803 tree point records
-│   │   │   ├── buildings.json                             # 376 building footprints
-│   │   │   └── landmarks.json                             # Verified navigation landmarks
-│   │   └── in-mh-pune-vit-bibwewadi/                      # Planned campus expansion
+│   │   │   ├── manifest.json                              # Bundle metadata & limitation flags
+│   │   │   ├── network.json                               # 457 nodes, 584 walkable edges (17.11 km)
+│   │   │   ├── shade.json                                 # 584 edge precomputed shade records
+│   │   │   ├── canopy.geojson                             # 3,738 crown polygons
+│   │   │   ├── trees.geojson                              # 3,738 tree point records (65 dead excluded)
+│   │   │   ├── buildings.geojson                          # 376 building footprints
+│   │   │   └── landmarks.json                             # Navigation landmarks (snapped to OSM, unverified)
+│   │   └── in-mh-pune-vit-bibwewadi/                      # Planned campus expansion (planned, unreleased)
+│   ├── raw/                                               # Raw PMC tree census extracts & provenance README
 │   └── osm/                                               # Preserved raw OSM extracts & metadata
 ├── docs/                                                  # Architecture & methodology documentation
 │   ├── ARCHITECTURE.md
+│   ├── CLAIM_STATS.md                                     # Benchmark stats for 300 random trips
 │   ├── DATA_PROVENANCE.md
-│   ├── SHADE_METHODOLOGY.md
-│   ├── ROUTING_METHODOLOGY.md
 │   ├── DEMO_GUIDE.md
 │   ├── LIMITATIONS_AND_FUTURE_WORK.md
+│   ├── PITCH.md                                           # Presentation script & judge Q&A
+│   ├── ROUTING_METHODOLOGY.md
+│   ├── SHADE_METHODOLOGY.md
 │   └── VIT_DATA_AUDIT.md
 ├── schemas/                                               # JSON Schemas for data contract enforcement
 ├── scripts/                                               # Reproducible data pipeline & validator
 │   ├── process_pilot_data.py
-│   └── validate_bundle.py
-└── web/                                                   # React / Vite / TypeScript web app
+│   ├── validate_bundle.py
+│   ├── find_demo_trips.py
+│   └── claim_stats.py
+└── web/                                                   # React 19 / Vite / TypeScript web app
     ├── src/
-    │   ├── components/CampusMap.tsx
-    │   ├── data/campusRepository.ts
-    │   ├── routing/routeEngine.ts
-    │   ├── routing/solarEngine.ts
+    │   ├── components/
+    │   │   ├── MapView.tsx                                # Interactive Leaflet map & layer rendering
+    │   │   ├── PlannerPanel.tsx                           # Route planning sidebar & bottom sheet
+    │   │   ├── RouteCard.tsx                              # Route comparison card with sun-minutes
+    │   │   ├── ShadeRibbon.tsx                            # Visual sun/shade proportion ribbon
+    │   │   ├── SunScrubber.tsx                            # Solar arc slider & seasonal toggle
+    │   │   ├── DemoTripsModal.tsx                         # Curated demo trips selector
+    │   │   └── AboutDialog.tsx                            # Methodology & transparency dialog
+    │   ├── data/
+    │   │   ├── campusRepository.ts
+    │   │   └── demoTrips.ts                               # 4 verified honest demonstration trips
+    │   ├── routing/
+    │   │   ├── routeEngine.ts                             # Bicriteria Pareto search & interpolation
+    │   │   └── solarEngine.ts                             # NOAA solar position algorithm for Pune
     │   ├── App.tsx
     │   └── styles.css
     └── package.json

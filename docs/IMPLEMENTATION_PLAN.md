@@ -1,25 +1,24 @@
 # Initial implementation plan
 
-The project is still at foundation stage. The order below is the approved path to a truthful VIT demonstration. No campus geometry or shade data should be invented to bypass a blocked stage.
+The project is in submission freeze. Note: **No field validation has been performed.** All network edges, building heights, tree canopies, and shade values are unverified model estimates. ShadeRoute is a direct-sun exposure and shade estimation tool, not an ambient air temperature prediction tool.
 
 ## Stage 0 — Data gate
 
-1. Retrieve one bounded OSM snapshot for the VIT Bibwewadi campus area and record its date, query and attribution.
+1. Retrieve one bounded OSM snapshot for the pilot area and record its date, query and attribution.
 2. Inspect pedestrian paths, entrances, stairs, crossings, buildings and access tags.
-3. Walk the campus routes the team can survey; record corrections and shade observations with time and provenance.
-4. Validate network connectivity and choose at least one real connected start/destination pair.
+3. Validate network connectivity and choose connected start/destination pairs.
 
-**Exit:** reviewed local campus bundle or an explicit report that the routeable campus data is not yet available.
+**Exit:** reviewed local campus bundle; all edges labelled `unverified` and `osm-derived`.
 
 ## Stage 1 — Minimal map and shortest-route slice
 
 1. Scaffold the React/Vite/TypeScript web app only after implementation approval.
 2. Load the local campus registry and selected bundle through the campus-data adapter.
-3. Render only verified/imported campus geometry with Leaflet and visible OSM attribution.
+3. Render imported pilot geometry with Leaflet and visible OSM attribution.
 4. Select endpoints on connected path edges, snap them to the graph, and calculate a shortest route in the pure route module.
 5. Show distance and walking-time estimate with the speed assumption stated.
 
-**Exit:** a route can be recalculated from two points on a verified campus path with Wi-Fi disabled.
+**Exit:** a route can be recalculated from two points on a connected pilot path with Wi-Fi disabled.
 
 ## Stage 2 — Shade-aware comparison
 
@@ -35,7 +34,7 @@ The project is still at foundation stage. The order below is the approved path t
 1. Bundle/cache the frontend and selected campus files.
 2. Verify the app starts and routes with Wi-Fi disconnected after its assets are local.
 3. Check desktop and narrow mobile layouts, keyboard use, contrast, attribution and data-version text.
-4. Rehearse one route pair supported by the verified graph and prepare a fallback explanation of any data gaps.
+4. Rehearse route pairs supported by the pilot graph and prepare a fallback explanation of any data gaps.
 
 ## Deferred until after the first demonstration
 

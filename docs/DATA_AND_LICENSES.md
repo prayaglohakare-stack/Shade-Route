@@ -8,7 +8,7 @@ OSM data is licensed under the Open Database License (ODbL). Review the licence 
 
 Use a public Overpass instance for a deliberate, bounded one-time extract, then cache the result. It is a shared public service, not a production availability commitment. Do not build runtime app traffic on it. Avoid public Nominatim autocomplete or repetitive geocoding; the pilot address is known and the app does not need a general-purpose address-search service.
 
-The standard `tile.openstreetmap.org` raster tiles are not the offline map-data solution. Its policy prohibits bulk fetching and offline tile archives and requires visible attribution and compliant caching. Use local verified campus vectors for the offline map.
+The standard `tile.openstreetmap.org` raster tiles are not the offline map-data solution. Its policy prohibits bulk fetching and offline tile archives and requires visible attribution and compliant caching. Use local bundled pilot vectors for the offline map. No field validation has been performed; all data vectors are unverified.
 
 ## Field survey
 

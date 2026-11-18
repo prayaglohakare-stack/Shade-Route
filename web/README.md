@@ -23,6 +23,6 @@ npm run dev
   - Honest Fallback: If cooler routing saves less than 1.0 minute in direct sun, the app plainly explains *"Shortest route is already about as shaded"* and recommends the shortest path.
 - **Scientific Honesty:**
   - Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`.
-  - No field validation has been completed yet.
+  - **No field validation has been performed.**
   - Zero placeholder or fake ground observation data is created.
-  - Shade is direct solar irradiance blockage; it is never claimed to be ambient air temperature.
+  - ShadeRoute is a direct-sun exposure and shade estimation tool, not a temperature prediction tool: shade blocks direct radiant solar flux (~800–1,000 W/m² in Pune), not ambient air temperature.

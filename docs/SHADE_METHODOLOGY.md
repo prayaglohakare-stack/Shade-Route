@@ -5,9 +5,10 @@
 Conventional routing applications treat pedestrian walkways as one-dimensional abstract vectors parameterized solely by Euclidean length or free-flow walking velocity. ShadeRoute treats pedestrian corridors as **three-dimensional environmental micro-environments** interacting with overhead vegetation, building enclosures, and solar angles.
 
 ### Essential Ethical Disclosures
-1. **Shade is Not Temperature:** ShadeRoute models **potential solar canopy overlap** and line-of-sight foliage cover. It does **not** measure or claim microclimate ambient air temperature or radiant surface temperature reduction.
+1. **Direct-Sun Estimation (Shade is Not Temperature):** ShadeRoute is a **direct-sun exposure and shade estimation tool**, not a temperature prediction tool. It models **potential solar canopy overlap**, building-cast shadow geometry, and line-of-sight foliage cover. It does **not** measure or predict microclimate ambient air temperature or radiant surface temperature reduction.
 2. **Canopy Diameter is a Diameter:** In the municipal dataset, `canopy_dia_m` represents total crown diameter ($D$). The geometric radius of the crown is strictly $R = D / 2$.
 3. **Unknowns Remain Unknown:** The absence of a recorded tree on a corridor is not treated as proof of intense sun exposure; where data coverage is missing, it is reported as *unknown*.
+4. **No Field Validation Performed:** All shadow geometry, building heights, tree canopies, and pathway shade fractions are model projections from OpenStreetMap geometry and PMC 2019 tree census data. No ground-truth field survey has been performed. Every network edge is labelled `unverified` and `osm-derived`.
 
 ---
 
@@ -57,9 +58,9 @@ $$L_{\text{canopy}}(e) = f_{\text{canopy}}(e) \times \text{Length}(e)$$
 
 ## 3. Covered Walkways & Structural Shading
 
-Verified architectural covered walkways (such as continuous arcades, pedestrian canopies, or transit shelters) are classified with `pathClass = "covered-walkway"`.
+Architectural covered walkways (such as continuous arcades, pedestrian canopies, or transit shelters) are classified with `pathClass = "covered-walkway"`.
 - Covered walkways are treated as an independent evidence layer from biological tree crowns.
-- For verified covered segments, $f_{\text{covered}}(e) = 1.0$.
+- For covered walkway segments, $f_{\text{covered}}(e) = 1.0$.
 - In route reporting, canopy overlap and covered walkway distances are accounted for separately.
 
 ---

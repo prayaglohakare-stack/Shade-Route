@@ -22,11 +22,12 @@
   - The map loads instantly with local bundled data—no paid map APIs or API keys required.
 
 #### Step 2: Explore the Environmental Layers
-- Click the **Layers** pills on the top-left of the map:
-  - Toggle **🏢 Shadows**: Watch the dynamic ground shadow polygons projected from 376 building envelopes and 3,803 tree crowns.
-  - Toggle **🌳 Canopy**: Watch the 3,803 circular green tree crowns appear across streets and parks ($R = D/2$).
+- Click the **Layers** pills on the top of the map:
+  - Toggle **🏢 Shadows**: Watch the dynamic ground shadow polygons projected from 376 building envelopes and 3,738 active tree crowns.
+  - Toggle **🌳 Canopy**: Watch the 3,738 circular green tree crowns appear across streets and parks ($R = D/2$).
   - Toggle **📍 Trees**: Displays individual municipal census trunk markers.
   - Toggle **🏛️ Buildings**: 376 mapped architectural footprints.
+  - Toggle **🚶 Streets**: Walkable pedestrian network (457 nodes, 584 edges, 17.11 km).
   - Toggle **❓ Height Uncertainty**: Highlights buildings whose heights rely on Tier 4 architectural typologies with amber outlines.
   - Click on any building footprint:
     - Point out the **Feature Inspector** flyout: displays OSM ID, footprint area ($m^2$), estimated height, confidence tier (e.g. *Tier 4 Typology Estimate*), height assumption rationale, and explicit uncertainty flag.
@@ -80,9 +81,10 @@
 - The routing engine calculates all three routes in less than 5 milliseconds!
 
 #### Step 6: Review Methodology & Limitations (Honesty & Ethics)
-- Click the **Methodology** button on the topbar.
+- Click the **About** button on the topbar.
 - Emphasize to the judges our commitment to scientific honesty:
-  - We do **not** claim to measure temperature (since no live ambient thermometer sensors exist).
+  - ShadeRoute is a **direct-sun exposure and shade estimation tool, NOT a temperature prediction tool**: it models direct solar radiant flux reduction (~800–1000 W/m² in Pune), not ambient air temperature cooling.
+  - **No field validation has been performed**: All pedestrian ways, building heights, tree crowns, and shade values are model estimates; every edge is labelled `unverified` and `osm-derived`.
   - We explicitly define canopy overlap as **geometric line-of-sight foliage cover**.
   - We preserve the distinction between 2019 census data and modern observations.
   - We enforce that unknown data remains unknown, rather than making false claims of sun exposure.

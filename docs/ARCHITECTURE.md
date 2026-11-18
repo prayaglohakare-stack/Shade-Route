@@ -4,13 +4,13 @@
 
 ## Product boundary
 
-ShadeRoute helps a pedestrian compare routes by distance, estimated walking time and shade evidence. Shade is not temperature. Every displayed path and route must come from campus data that is sourced or physically verified. Missing shade coverage is unknown, not an assertion of sun exposure.
+ShadeRoute is a direct-sun exposure and shade estimation tool, not an ambient air temperature prediction tool. Shade reduces direct radiant solar flux; it is not ambient air temperature. No field validation has been performed. All displayed pathways, building footprints, and tree crowns originate from OpenStreetMap data and the 2019 PMC tree census, and are explicitly labelled `unverified` and `osm-derived`. Missing shade coverage is unknown, not an assertion of sun exposure.
 
 ## MVP architecture
 
 The MVP is a static web application. It loads a versioned campus bundle available on the device and computes routes in the browser. It has no runtime backend, database, account system, crowdsourced submission feature or required external API. Campus data retrieval and review happen outside the running product; the reviewed bundle is then published with the frontend.
 
-Keep offline routing independent of online services. Bundle the required frontend assets and VIT data, and cache them for offline use after they have been downloaded or otherwise installed on the device. Do not use the standard OSM raster tile service as an offline basemap. Render only the verified campus data with the map library.
+Keep offline routing independent of online services. Bundle the required frontend assets and pilot data, and cache them for offline use after they have been downloaded or otherwise installed on the device. Render local pilot vectors with the map library.
 
 ## Technology choices
 
