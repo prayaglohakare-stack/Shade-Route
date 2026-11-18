@@ -498,20 +498,110 @@ for nid in sorted(largest_comp_nodes):
     })
     network_node_ids.add(f"node-{nid}")
 
-# Tree Spatial Grid
+# NOAA Solar Position Algorithm
+def noaa_solar(year, month, day, hour, minute=0, second=0, lat=REF_LAT, lon=REF_LON, tz_offset=5.5):
+    t_utc = hour + minute / 60.0 + second / 3600.0 - tz_offset
+    y = year
+    m = month
+    if m <= 2:
+        y -= 1
+        m += 12
+    A = math.floor(y / 100)
+    B = 2 - A + math.floor(A / 4)
+    jd = math.floor(365.25 * (y + 4716)) + math.floor(30.6001 * (m + 1)) + day + B - 1524.5 + t_utc / 24.0
+    T = (jd - 2451545.0) / 36525.0
+
+    L0 = ((280.46646 + T * (36000.76983 + 0.0003032 * T)) % 360.0 + 360.0) % 360.0
+    M = ((357.52911 + T * (35999.05029 - 0.0001537 * T)) % 360.0 + 360.0) % 360.0
+    Mr = math.radians(M)
+    e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T)
+
+    C = (math.sin(Mr) * (1.914602 - T * (0.004817 + 0.000014 * T)) +
+         math.sin(2 * Mr) * (0.019993 - 0.000101 * T) +
+         math.sin(3 * Mr) * 0.000289)
+    sun_true_lon = L0 + C
+    omega = 125.04 - 1934.136 * T
+    lambda_deg = sun_true_lon - 0.00569 - 0.00478 * math.sin(math.radians(omega))
+    lambda_rad = math.radians(lambda_deg)
+
+    eps0 = 23.0 + (26.0 + (21.448 - T * (46.815 + T * (0.00059 - T * 0.001813))) / 60.0) / 60.0
+    eps = eps0 + 0.00256 * math.cos(math.radians(omega))
+    eps_rad = math.radians(eps)
+
+    sin_dec = math.sin(eps_rad) * math.sin(lambda_rad)
+    dec_rad = math.asin(sin_dec)
+
+    y_var = math.tan(eps_rad / 2.0) ** 2
+    eot_min = 4.0 * math.degrees(
+        y_var * math.sin(2.0 * math.radians(L0)) -
+        2.0 * e * math.sin(Mr) +
+        4.0 * e * y_var * math.sin(Mr) * math.cos(2.0 * math.radians(L0)) -
+        0.5 * (y_var ** 2) * math.sin(4.0 * math.radians(L0)) -
+        1.25 * (e ** 2) * math.sin(2.0 * Mr)
+    )
+
+    solar_time_fix = eot_min + 4.0 * lon - 60.0 * tz_offset
+    true_solar_time = ((hour * 60.0 + minute + second / 60.0 + solar_time_fix) % 1440.0 + 1440.0) % 1440.0
+    ha_deg = true_solar_time / 4.0 - 180.0
+    if ha_deg < -180.0: ha_deg += 360.0
+    ha_rad = math.radians(ha_deg)
+
+    lat_rad = math.radians(lat)
+    cos_zenith = math.sin(lat_rad) * math.sin(dec_rad) + math.cos(lat_rad) * math.cos(dec_rad) * math.cos(ha_rad)
+    cos_zenith = max(-1.0, min(1.0, cos_zenith))
+    zenith_rad = math.acos(cos_zenith)
+    zenith_deg = math.degrees(zenith_rad)
+    alt_deg = 90.0 - zenith_deg
+
+    if alt_deg > 85.0:
+        refr = 0.0
+    elif alt_deg > 5.0:
+        refr = (58.1 / math.tan(math.radians(alt_deg)) - 0.07 / (math.tan(math.radians(alt_deg)) ** 3) + 0.000086 / (math.tan(math.radians(alt_deg)) ** 5)) / 3600.0
+    elif alt_deg > -0.575:
+        refr = (1735.0 + alt_deg * (-518.2 + alt_deg * (103.4 + alt_deg * (-12.79 + alt_deg * 0.711)))) / 3600.0
+    else:
+        refr = -20.774 / math.tan(math.radians(alt_deg)) / 3600.0
+    corrected_alt = max(0.0, alt_deg + refr)
+
+    cos_az = (math.sin(lat_rad) * math.cos(zenith_rad) - math.sin(dec_rad)) / (math.cos(lat_rad) * math.sin(zenith_rad) + 1e-9)
+    cos_az = max(-1.0, min(1.0, cos_az))
+    az_angle = math.degrees(math.acos(cos_az))
+    if ha_deg > 0:
+        azimuth = (180.0 + az_angle) % 360.0
+    else:
+        azimuth = (540.0 - az_angle) % 360.0
+
+    return corrected_alt, azimuth
+
+# Precompute real sun positions for the 2 representative dates (18 Nov & 25 Apr)
+DATES = ["2026-11-18", "2026-04-25"]
+HOURS = list(range(7, 18))  # 07:00 to 17:00 (11 slots)
+
+SOLAR_SLOTS = {}
+for d_str in DATES:
+    y, m, d = map(int, d_str.split('-'))
+    SOLAR_SLOTS[d_str] = []
+    for h in HOURS:
+        alt, az = noaa_solar(y, m, d, h, 0)
+        sdir = (az + 180.0) % 360.0
+        smult = min(5.0, 1.0 / math.tan(math.radians(max(2.0, alt))))
+        dx_unit = math.sin(math.radians(sdir)) * smult
+        dy_unit = math.cos(math.radians(sdir)) * smult
+        SOLAR_SLOTS[d_str].append({
+            "hour": h,
+            "alt": alt,
+            "az": az,
+            "dx_unit": dx_unit,
+            "dy_unit": dy_unit,
+        })
+
+# Tree Spatial Grid (50m cells)
 tree_grid = {}
 GRID_SIZE = 50.0
 for tree in raw_trees:
     tx, ty = tree["xy"]
     gx, gy = int(math.floor(tx / GRID_SIZE)), int(math.floor(ty / GRID_SIZE))
-    for dx in (-1, 0, 1):
-        for dy in (-1, 0, 1):
-            tree_grid.setdefault((gx + dx, gy + dy), []).append(tree)
-
-# Solar Position for baseline noon calculation (12:30 IST)
-# Altitude ~ 68°, Azimuth ~ 178° (South)
-NOON_ALT = 68.0
-NOON_AZ = 178.0
+    tree_grid.setdefault((gx, gy), []).append(tree)
 
 network_edges = []
 shade_records = []
@@ -583,84 +673,109 @@ for w in walkable_ways:
                 },
                 "contributingSources": [],
                 "uncertainFraction": 1.0,
-                "unknownReason": "Edge midpoint lies outside the tree/building data coverage box"
+                "unknownReason": "Edge midpoint lies outside the tree/building data coverage box",
+                "slots": {
+                    "2026-11-18": [[0.0, 0.0, 0.0]] * len(HOURS),
+                    "2026-04-25": [[0.0, 0.0, 0.0]] * len(HOURS),
+                }
             })
             continue
 
         p1_xy = to_local_xy(pt_u[0], pt_u[1])
         p2_xy = to_local_xy(pt_v[0], pt_v[1])
-
-        # 1. Tree Canopy Intervals
-        seg_gx1 = int(math.floor(min(p1_xy[0], p2_xy[0]) / GRID_SIZE))
-        seg_gx2 = int(math.floor(max(p1_xy[0], p2_xy[0]) / GRID_SIZE))
-        seg_gy1 = int(math.floor(min(p1_xy[1], p2_xy[1]) / GRID_SIZE))
-        seg_gy2 = int(math.floor(max(p1_xy[1], p2_xy[1]) / GRID_SIZE))
-        
-        cand_trees = set()
-        for gx in range(seg_gx1, seg_gx2 + 1):
-            for gy in range(seg_gy1, seg_gy2 + 1):
-                for t in tree_grid.get((gx, gy), []):
-                    cand_trees.add(t['id'])
-
-        tree_intervals = []
-        for tid in cand_trees:
-            t = next(tr for tr in raw_trees if tr['id'] == tid)
-            inter = segment_circle_intersection(p1_xy, p2_xy, t['xy'], t['radius_m'])
-            if inter: tree_intervals.append(inter)
-        merged_tree_intervals = merge_intervals(tree_intervals)
-        tree_frac = sum(e - s for s, e in merged_tree_intervals)
-
-        # 2. Building Shadow Intervals (Spatial Intersection with building shadow quads)
-        bldg_intervals = []
         seg_min_x, seg_max_x = min(p1_xy[0], p2_xy[0]), max(p1_xy[0], p2_xy[0])
         seg_min_y, seg_max_y = min(p1_xy[1], p2_xy[1]), max(p1_xy[1], p2_xy[1])
 
+        # Pre-filter candidate trees within 100m buffer
+        gx1 = int(math.floor((seg_min_x - 100.0) / GRID_SIZE))
+        gx2 = int(math.floor((seg_max_x + 100.0) / GRID_SIZE))
+        gy1 = int(math.floor((seg_min_y - 100.0) / GRID_SIZE))
+        gy2 = int(math.floor((seg_max_y + 100.0) / GRID_SIZE))
+        
+        cand_trees = []
+        seen_tids = set()
+        for gx in range(gx1, gx2 + 1):
+            for gy in range(gy1, gy2 + 1):
+                for t in tree_grid.get((gx, gy), []):
+                    if t['id'] not in seen_tids:
+                        seen_tids.add(t['id'])
+                        cand_trees.append(t)
+
+        # Pre-filter candidate buildings within 90m buffer
+        cand_bldgs = []
         for bldg in calibrated_buildings:
-            h = bldg['heightM']
-            # Shadow offset at noon
-            alt_rad = math.radians(NOON_ALT)
-            slen = min(h / math.tan(alt_rad), h * 3.5)
-            sdir = math.radians((NOON_AZ + 180.0) % 360.0)
-            dx = math.sin(sdir) * slen
-            dy = math.cos(sdir) * slen
-
             bx1, by1, bx2, by2 = bldg['bbox']
-            sbx1 = min(bx1, bx1 + dx) - 5
-            sbx2 = max(bx2, bx2 + dx) + 5
-            sby1 = min(by1, by1 + dy) - 5
-            sby2 = max(by2, by2 + dy) + 5
+            if not (bx2 < seg_min_x - 90.0 or bx1 > seg_max_x + 90.0 or by2 < seg_min_y - 90.0 or by1 > seg_max_y + 90.0):
+                cand_bldgs.append(bldg)
 
-            if seg_max_x < sbx1 or seg_min_x > sbx2 or seg_max_y < sby1 or seg_min_y > sby2:
-                continue
+        edge_slots = {}
+        for d_str in DATES:
+            edge_slots[d_str] = []
+            for slot in SOLAR_SLOTS[d_str]:
+                dx_u = slot['dx_unit']
+                dy_u = slot['dy_unit']
 
-            # Building footprint
-            bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, bldg['local_pts']))
-            # Wall shadow quads
-            npts = len(bldg['local_pts'])
-            for j in range(npts - 1):
-                v1 = bldg['local_pts'][j]
-                v2 = bldg['local_pts'][j + 1]
-                quad = [v1, v2, (v2[0] + dx, v2[1] + dy), (v1[0] + dx, v1[1] + dy), v1]
-                bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, quad))
+                # 1. Tree Shade (displaced crown: offset = height / tan(alt) along shadow dir)
+                tree_intervals = []
+                for t in cand_trees:
+                    cx = t['xy'][0] + dx_u * t['height_m']
+                    cy = t['xy'][1] + dy_u * t['height_m']
+                    inter = segment_circle_intersection(p1_xy, p2_xy, (cx, cy), t['radius_m'])
+                    if inter: tree_intervals.append(inter)
+                merged_tree_intervals = merge_intervals(tree_intervals)
+                tree_frac = min(1.0, sum(e - s for s, e in merged_tree_intervals))
 
-        merged_bldg_intervals = merge_intervals(bldg_intervals)
-        bldg_frac = sum(e - s for s, e in merged_bldg_intervals)
+                # 2. Building Shadow (footprint + wall shadow quads)
+                bldg_intervals = []
+                for bldg in cand_bldgs:
+                    h = bldg['heightM']
+                    dx = dx_u * h
+                    dy = dy_u * h
+                    bx1, by1, bx2, by2 = bldg['bbox']
+                    sbx1 = min(bx1, bx1 + dx) - 2.0
+                    sbx2 = max(bx2, bx2 + dx) + 2.0
+                    sby1 = min(by1, by1 + dy) - 2.0
+                    sby2 = max(by2, by2 + dy) + 2.0
+                    if seg_max_x < sbx1 or seg_min_x > sbx2 or seg_max_y < sby1 or seg_min_y > sby2:
+                        continue
 
-        # 3. Permanent Covered Structures
-        covered_intervals = [(0.0, 1.0)] if is_covered else []
-        covered_frac = 1.0 if is_covered else 0.0
+                    # Building footprint
+                    bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, bldg['local_pts']))
+                    # Wall shadow quads
+                    npts = len(bldg['local_pts'])
+                    for j in range(npts - 1):
+                        v1 = bldg['local_pts'][j]
+                        v2 = bldg['local_pts'][j + 1]
+                        quad = [v1, v2, (v2[0] + dx, v2[1] + dy), (v1[0] + dx, v1[1] + dy), v1]
+                        bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, quad))
+                merged_bldg_intervals = merge_intervals(bldg_intervals)
+                bldg_frac = min(1.0, sum(e - s for s, e in merged_bldg_intervals))
 
-        # 4. Strict Mathematical Union (ZERO DOUBLE COUNTING)
-        combined_intervals = merge_intervals(merged_tree_intervals + merged_bldg_intervals + covered_intervals)
-        combined_frac = min(1.0, sum(e - s for s, e in combined_intervals))
+                # 3. Permanent Covered Structures
+                covered_intervals = [(0.0, 1.0)] if is_covered else []
+                covered_frac = 1.0 if is_covered else 0.0
 
-        total_tree_shade += seg_len * min(1.0, tree_frac)
-        total_bldg_shade += seg_len * min(1.0, bldg_frac)
-        total_combined_shade += seg_len * combined_frac
+                # 4. Strict Mathematical Union (ZERO DOUBLE COUNTING)
+                combined_intervals = merge_intervals(merged_tree_intervals + merged_bldg_intervals + covered_intervals)
+                combined_frac = min(1.0, sum(e - s for s, e in combined_intervals))
+
+                edge_slots[d_str].append([
+                    round(combined_frac, 2),
+                    round(tree_frac, 2),
+                    round(bldg_frac, 2)
+                ])
+
+        # Noon baseline slot (12:00 IST on 18 Nov, index 5 in HOURS 7..17)
+        noon_slot = edge_slots["2026-11-18"][5]
+        noon_comb, noon_tree, noon_bldg = noon_slot
+
+        total_tree_shade += seg_len * noon_tree
+        total_bldg_shade += seg_len * noon_bldg
+        total_combined_shade += seg_len * noon_comb
 
         contributing = []
-        if bldg_frac > 0.01: contributing.append("osm-building-shadows")
-        if tree_frac > 0.01: contributing.append("pmc-tree-census-2019")
+        if noon_bldg > 0.01: contributing.append("osm-building-shadows")
+        if noon_tree > 0.01: contributing.append("pmc-tree-census-2019")
         if is_covered: contributing.append("covered-walkway-structure")
 
         shade_records.append({
@@ -668,14 +783,14 @@ for w in walkable_ways:
             "validFrom": "2026-11-18T00:00:00+05:30",
             "validUntil": "2026-11-18T23:59:59+05:30",
             "status": "modeled",
-            "shadeFraction": round(combined_frac, 3),
-            "treeShadeFraction": round(min(1.0, tree_frac), 3),
-            "buildingShadeFraction": round(min(1.0, bldg_frac), 3),
-            "coveredFraction": covered_frac,
+            "shadeFraction": noon_comb,
+            "treeShadeFraction": noon_tree,
+            "buildingShadeFraction": noon_bldg,
+            "coveredFraction": 1.0 if is_covered else 0.0,
             "unknownFraction": 0.0,
             "shadeFractionRange": {
-                "low": round(max(0.0, combined_frac * 0.8), 3),
-                "high": round(min(1.0, combined_frac * 1.2), 3)
+                "low": round(max(0.0, noon_comb * 0.8), 2),
+                "high": round(min(1.0, noon_comb * 1.2), 2)
             },
             "method": "geometry-model",
             "recordedAt": "2026-11-18T00:00:00+05:30",
@@ -684,7 +799,8 @@ for w in walkable_ways:
                 "sourceId": "combined-bldg-tree-model-v2"
             },
             "contributingSources": contributing,
-            "uncertainFraction": round(bldg_frac if any(b['isUncertain'] for b in calibrated_buildings) else 0.0, 3)
+            "uncertainFraction": round(noon_bldg if any(b['isUncertain'] for b in cand_bldgs) else 0.0, 2),
+            "slots": edge_slots
         })
 
 print(f"Assembled {len(network_nodes)} network nodes and {len(network_edges)} edges.")

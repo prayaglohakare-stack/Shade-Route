@@ -52,6 +52,7 @@ export interface ShadeRecord {
   sourceRef?: { type: string; sourceId: string };
   contributingSources?: string[];
   unknownReason?: string;
+  slots?: Record<string, Array<[shade: number, tree: number, bldg: number]>>; // Hourly slots (07:00-17:00) per date
 }
 
 export interface BuildingProperties {

@@ -9,7 +9,12 @@ import {
   type RouteComparisonResult,
   type RouteMode,
 } from './routing/routeEngine';
-import { calculateSolarPosition, SOLAR_PRESETS, type SolarPreset } from './routing/solarEngine';
+import {
+  calculateSolarPosition,
+  getSolarPresets,
+  generatePresetDescription,
+  type SolarPreset,
+} from './routing/solarEngine';
 import Topography from './components/react-bits/Topography/Topography';
 import TargetCursor from './components/react-bits/TargetCursor/TargetCursor';
 import TechText from './components/react-bits/TechText/TechText';
@@ -113,10 +118,14 @@ export default function App() {
     return () => { active = false; };
   }, [selectedCampusId]);
 
+  // Solar Presets dynamically computed for the active date
+  const activeDate = '2026-11-18';
+  const solarPresets = useMemo(() => getSolarPresets(activeDate), [activeDate]);
+
   // Handle preset change
   const selectSolarPreset = (presetId: SolarPreset) => {
     setSolarPreset(presetId);
-    const preset = SOLAR_PRESETS.find((p) => p.id === presetId);
+    const preset = solarPresets.find((p) => p.id === presetId);
     if (preset) {
       setDepartureHour(preset.hour);
       setDepartureMinute(preset.minute);
@@ -147,6 +156,8 @@ export default function App() {
       shadeRecords,
       departureHour,
       departureMinute,
+      undefined,
+      activeDate,
     );
 
     if (outcome.ok) {
@@ -156,7 +167,7 @@ export default function App() {
       setRouteResult(null);
       setRouteError(outcome.error.message);
     }
-  }, [availability, origin, destination, departureHour, departureMinute]);
+  }, [availability, origin, destination, departureHour, departureMinute, activeDate]);
 
   const activeRoute: ComputedRoute | null = useMemo(() => {
     if (!routeResult) return null;
@@ -471,17 +482,21 @@ export default function App() {
                 <span>Departure Time & Solar Position (Pune)</span>
               </div>
               <div className="solar-presets-grid">
-                {SOLAR_PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    className={`solar-preset-btn cursor-target ${solarPreset === p.id ? 'is-selected' : ''}`}
-                    data-cursor-label="SUN"
-                    onClick={() => selectSolarPreset(p.id)}
-                  >
-                    <strong>{p.timeString}</strong>
-                    <small>{p.id === 'noon' ? 'High Sun' : p.id === 'morning' ? 'Morning W-NW' : 'Afternoon E-NE'}</small>
-                  </button>
-                ))}
+                {solarPresets.map((p) => {
+                  const pos = calculateSolarPosition(p.hour, p.minute, activeDate);
+                  return (
+                    <button
+                      key={p.id}
+                      className={`solar-preset-btn cursor-target ${solarPreset === p.id ? 'is-selected' : ''}`}
+                      data-cursor-label="SUN"
+                      onClick={() => selectSolarPreset(p.id)}
+                      title={p.description}
+                    >
+                      <strong>{p.timeString}</strong>
+                      <small>{pos.altitudeDeg.toFixed(0)}° alt · {pos.shadowMultiplier.toFixed(1)}× shadow</small>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Custom Departure Time Controls */}
@@ -508,7 +523,7 @@ export default function App() {
               </div>
 
               <p className="solar-note">
-                At {String(departureHour).padStart(2, '0')}:{String(departureMinute).padStart(2, '0')}, sun is at {solarInfo.pos.altitudeDeg}° altitude and {solarInfo.pos.azimuthDeg}° azimuth. Buildings cast shadows of length {solarInfo.pos.shadowMultiplier}x height towards {solarInfo.pos.shadowDirectionDeg}°.
+                At {String(departureHour).padStart(2, '0')}:{String(departureMinute).padStart(2, '0')}: {generatePresetDescription(departureHour, departureMinute, activeDate)}
               </p>
             </div>
 
@@ -776,6 +791,7 @@ export default function App() {
             solarTime={solarPreset}
             departureHour={departureHour}
             departureMinute={departureMinute}
+            dateInput={activeDate}
             layers={layers}
             onMapPointSelected={handleMapPointSelected}
             onLandmarkSelected={(lm) => handleLandmarkChosen(lm, selectionMode || 'origin')}

@@ -1,5 +1,5 @@
 import type { CampusEdge, CampusNode, Coordinate, RouteNetwork, ShadeRecord } from '../data/types';
-import { calculateSolarPosition, type SolarPosition } from './solarEngine';
+import { parseDateInput } from './solarEngine';
 
 export const DEFAULT_WALKING_SPEED_MPS = 1.25; // 1.25 m/s ≈ 4.5 km/h standard pedestrian speed
 
@@ -106,6 +106,91 @@ export function snapCoordinateToNetwork(
   };
 }
 
+export interface DynamicEdgeShade {
+  combinedFrac: number;
+  treeFrac: number;
+  bldgFrac: number;
+  unknownFrac: number;
+  uncertainFrac: number;
+}
+
+/**
+ * Interpolates shade fractions between the two nearest hourly slots
+ * at the edge arrival time, using precomputed NOAA solar slot data.
+ */
+export function interpolateSlotShade(
+  shade: ShadeRecord | undefined,
+  arrivalMinutes: number,
+  dateInput: Date | string = '2026-11-18',
+): DynamicEdgeShade {
+  const unknownFrac = shade?.unknownFraction ?? (shade?.status === 'unknown' ? 1.0 : 0.0);
+  if (unknownFrac >= 1.0 || !shade) {
+    return {
+      combinedFrac: 0.0,
+      treeFrac: 0.0,
+      bldgFrac: 0.0,
+      unknownFrac: Math.min(1.0, unknownFrac),
+      uncertainFrac: shade?.uncertainFraction ?? 0.0,
+    };
+  }
+
+  const { month } = parseDateInput(dateInput);
+  // Match precomputed slot dates: 2026-04-25 (month 4) or 2026-11-18 (default/winter)
+  const dateKey = month === 4 ? '2026-04-25' : '2026-11-18';
+  const slots = shade.slots?.[dateKey];
+
+  if (!slots || slots.length < 11) {
+    // Fallback if slot array is not present (e.g. test fixtures without precomputed slots)
+    const tree = shade.treeShadeFraction ?? (shade.shadeFraction ?? 0.0);
+    const bldg = shade.buildingShadeFraction ?? 0.0;
+    const combined = Math.min(
+      1.0 - unknownFrac,
+      Math.max(0.0, shade.shadeFraction ?? Math.min(1.0, tree + bldg - tree * bldg)),
+    );
+    return {
+      combinedFrac: combined,
+      treeFrac: Math.min(1.0 - unknownFrac, tree),
+      bldgFrac: Math.min(1.0 - unknownFrac, bldg),
+      unknownFrac,
+      uncertainFrac: shade.uncertainFraction ?? 0.0,
+    };
+  }
+
+  // Precomputed hourly slots: index 0 is 07:00 (420 min), index 10 is 17:00 (1020 min)
+  const hourFloat = arrivalMinutes / 60.0;
+  let combinedFrac = 0.0;
+  let treeFrac = 0.0;
+  let bldgFrac = 0.0;
+
+  if (hourFloat <= 7.0) {
+    [combinedFrac, treeFrac, bldgFrac] = slots[0];
+  } else if (hourFloat >= 17.0) {
+    [combinedFrac, treeFrac, bldgFrac] = slots[10];
+  } else {
+    // Linear interpolation between the two nearest hourly slots
+    const slotIndex = Math.floor(hourFloat - 7.0);
+    const t = hourFloat - 7.0 - slotIndex;
+    const s0 = slots[slotIndex];
+    const s1 = slots[slotIndex + 1];
+    combinedFrac = s0[0] * (1.0 - t) + s1[0] * t;
+    treeFrac = s0[1] * (1.0 - t) + s1[1] * t;
+    bldgFrac = s0[2] * (1.0 - t) + s1[2] * t;
+  }
+
+  const maxAvail = Math.max(0.0, 1.0 - unknownFrac);
+  const effectiveCombined = Math.min(maxAvail, Math.max(0.0, combinedFrac));
+  const effectiveTree = Math.min(maxAvail, Math.max(0.0, treeFrac));
+  const effectiveBldg = Math.min(maxAvail, Math.max(0.0, bldgFrac));
+
+  return {
+    combinedFrac: effectiveCombined,
+    treeFrac: effectiveTree,
+    bldgFrac: effectiveBldg,
+    unknownFrac,
+    uncertainFrac: shade.uncertainFraction ?? (shade.isUncertain ? effectiveBldg : 0.0),
+  };
+}
+
 /**
  * Calculates time-progressed combined metrics for an edge sequence.
  * Evaluates each edge at the estimated timestamp the pedestrian reaches it!
@@ -117,6 +202,7 @@ function calculateRouteMetrics(
   departureHour: number,
   departureMinute: number,
   walkingSpeedMps = DEFAULT_WALKING_SPEED_MPS,
+  dateInput: Date | string = '2026-11-18',
 ): RouteMetrics {
   let totalDist = 0;
   let combinedShadeDist = 0;
@@ -134,46 +220,23 @@ function calculateRouteMetrics(
     totalDist += len;
 
     // Time when pedestrian arrives at this edge
-    const edgeArrivalMinutes = (departureHour * 60 + departureMinute) + elapsedSeconds / 60;
-    const currentHour = Math.floor((edgeArrivalMinutes / 60) % 24);
-    const currentMin = Math.floor(edgeArrivalMinutes % 60);
-
-    const solarPos = calculateSolarPosition(currentHour, currentMin);
+    const edgeArrivalMinutes = departureHour * 60 + departureMinute + elapsedSeconds / 60;
     const isCovered = edge.pathClass === 'covered-walkway';
     const shade = shadeMap.get(edge.edgeId);
-    const unknownFrac = shade?.unknownFraction ?? (shade?.status === 'unknown' ? 1.0 : 0.0);
+    const dynamicShade = interpolateSlotShade(shade, edgeArrivalMinutes, dateInput);
 
-    // Baseline fractions from bundle
-    let treeFrac = shade?.treeShadeFraction ?? (shade?.shadeFraction ?? 0.0);
-    let bldgFrac = shade?.buildingShadeFraction ?? 0.0;
-    let uncertainFrac = shade?.uncertainFraction ?? (shade?.isUncertain ? (shade?.buildingShadeFraction ?? 0.0) : 0.0);
-
-    // Dynamic solar altitude scaling for building shadows:
-    // When sun is lower (morning/afternoon), building shadows stretch proportionally
-    // At noon (altitude ~68°), multiplier is ~0.4. At morning (46°), multiplier is ~1.0 (+150% shadow stretch!)
-    const noonMultiplier = 0.4;
-    const currentMultiplier = solarPos.shadowMultiplier;
-    const shadowStretchFactor = Math.min(2.5, Math.max(0.6, currentMultiplier / noonMultiplier));
-    const dynamicBldgFrac = Math.min(1.0, bldgFrac * shadowStretchFactor);
-
-    if (unknownFrac >= 1.0) {
+    if (dynamicShade.unknownFrac >= 1.0) {
       unknownDist += len;
     } else if (isCovered) {
       coveredDist += len;
       combinedShadeDist += len;
     } else {
-      // Non-double-counting union of building shadow and tree canopy
-      // Overlap formula: Union(A, B) = A + B - (A * B)
-      const rawCombined = Math.min(1.0, dynamicBldgFrac + treeFrac - (dynamicBldgFrac * treeFrac));
-      const effectiveCombined = Math.min(1.0 - unknownFrac, rawCombined);
-      
-      const edgeCombinedShade = len * effectiveCombined;
-      combinedShadeDist += edgeCombinedShade;
-      buildingDist += len * Math.min(1.0 - unknownFrac, dynamicBldgFrac);
-      canopyDist += len * Math.min(1.0 - unknownFrac, treeFrac);
-      unknownDist += len * unknownFrac;
-      exposedDist += len * Math.max(0.0, 1.0 - effectiveCombined - unknownFrac);
-      uncertainDist += len * uncertainFrac;
+      combinedShadeDist += len * dynamicShade.combinedFrac;
+      buildingDist += len * dynamicShade.bldgFrac;
+      canopyDist += len * dynamicShade.treeFrac;
+      unknownDist += len * dynamicShade.unknownFrac;
+      exposedDist += len * Math.max(0.0, 1.0 - dynamicShade.combinedFrac - dynamicShade.unknownFrac);
+      uncertainDist += len * dynamicShade.uncertainFrac;
     }
 
     elapsedSeconds += len / walkingSpeedMps;
@@ -225,7 +288,8 @@ function reconstructPolyline(nodeIds: string[], edges: CampusEdge[]): Coordinate
 }
 
 /**
- * Runs Dijkstra shortest-path with edge weights reflecting combined built and natural shade.
+ * Runs Dijkstra shortest-path with edge weights reflecting combined built and natural shade,
+ * dynamically interpolated at the estimated arrival time for each edge.
  */
 function runDijkstra(
   network: RouteNetwork,
@@ -233,50 +297,28 @@ function runDijkstra(
   destinationNodeId: string,
   shadeMap: Map<string, ShadeRecord>,
   mode: RouteMode,
-  solarPos: SolarPosition,
+  departureHour: number,
+  departureMinute: number,
+  walkingSpeedMps = DEFAULT_WALKING_SPEED_MPS,
+  dateInput: Date | string = '2026-11-18',
 ): { nodeIds: string[]; edges: CampusEdge[] } | null {
   const nodeMap = new Map<string, CampusNode>(network.nodes.map((n) => [n.nodeId, n]));
   if (!nodeMap.has(originNodeId) || !nodeMap.has(destinationNodeId)) return null;
 
-  const adjacency = new Map<string, Array<{ next: string; edge: CampusEdge; weight: number }>>();
+  const adjacency = new Map<string, Array<{ next: string; edge: CampusEdge; len: number }>>();
   for (const n of network.nodes) adjacency.set(n.nodeId, []);
-
-  const noonMultiplier = 0.4;
-  const shadowStretchFactor = Math.min(2.5, Math.max(0.6, solarPos.shadowMultiplier / noonMultiplier));
 
   for (const edge of network.edges) {
     if (!isEdgePermitted(edge)) continue;
-
     const len = edgeLength(edge);
     if (len <= 0) continue;
 
-    const isCovered = edge.pathClass === 'covered-walkway';
-    const shade = shadeMap.get(edge.edgeId);
-
-    const treeFrac = shade?.treeShadeFraction ?? (shade?.shadeFraction ?? 0.0);
-    const bldgFrac = Math.min(1.0, (shade?.buildingShadeFraction ?? 0.0) * shadowStretchFactor);
-
-    // Combined union fraction without double counting
-    const combinedFrac = isCovered ? 1.0 : Math.min(1.0, bldgFrac + treeFrac - (bldgFrac * treeFrac));
-    const shadedLen = len * combinedFrac;
-    const exposedLen = len - shadedLen;
-
-    let weight = len;
-    if (mode === 'shortest') {
-      weight = len;
-    } else if (mode === 'balanced') {
-      // 35% discount for combined building + tree shaded sections
-      weight = exposedLen + 0.65 * shadedLen;
-    } else if (mode === 'more-canopy') {
-      // 75% discount for combined building + tree shaded sections
-      weight = exposedLen + 0.25 * shadedLen;
-    }
-
-    adjacency.get(edge.fromNodeId)?.push({ next: edge.toNodeId, edge, weight });
-    adjacency.get(edge.toNodeId)?.push({ next: edge.fromNodeId, edge, weight });
+    adjacency.get(edge.fromNodeId)?.push({ next: edge.toNodeId, edge, len });
+    adjacency.get(edge.toNodeId)?.push({ next: edge.fromNodeId, edge, len });
   }
 
   const distances = new Map<string, number>([[originNodeId, 0]]);
+  const distanceMeters = new Map<string, number>([[originNodeId, 0]]);
   const previous = new Map<string, { nodeId: string; edge: CampusEdge }>();
   const unvisited = new Set<string>(nodeMap.keys());
 
@@ -296,12 +338,33 @@ function runDijkstra(
     if (current === destinationNodeId) break;
 
     unvisited.delete(current);
+    const currentDistM = distanceMeters.get(current) ?? 0;
+    const currentArrivalMin = (departureHour * 60 + departureMinute) + (currentDistM / walkingSpeedMps) / 60;
 
-    for (const { next, edge, weight } of adjacency.get(current) ?? []) {
+    for (const { next, edge, len } of adjacency.get(current) ?? []) {
       if (!unvisited.has(next)) continue;
+
+      const isCovered = edge.pathClass === 'covered-walkway';
+      const shade = shadeMap.get(edge.edgeId);
+      const dynamicShade = interpolateSlotShade(shade, currentArrivalMin, dateInput);
+
+      const combinedFrac = isCovered ? 1.0 : dynamicShade.combinedFrac;
+      const shadedLen = len * combinedFrac;
+      const exposedLen = Math.max(0.0, len * (1.0 - combinedFrac - dynamicShade.unknownFrac));
+
+      let weight = len;
+      if (mode === 'shortest') {
+        weight = len;
+      } else if (mode === 'balanced') {
+        weight = exposedLen + 0.65 * shadedLen;
+      } else if (mode === 'more-canopy') {
+        weight = exposedLen + 0.25 * shadedLen;
+      }
+
       const candidate = bestDist + weight;
       if (candidate < (distances.get(next) ?? Number.POSITIVE_INFINITY)) {
         distances.set(next, candidate);
+        distanceMeters.set(next, currentDistM + len);
         previous.set(next, { nodeId: current, edge });
       }
     }
@@ -346,6 +409,7 @@ export function calculateAllRoutes(
   departureHour = 12,
   departureMinute = 30,
   walkingSpeedMps = DEFAULT_WALKING_SPEED_MPS,
+  dateInput: Date | string = '2026-11-18',
 ): RouteOutcome {
   if (!network || !network.nodes || network.nodes.length === 0) {
     return { ok: false, error: { code: 'network-unavailable', message: 'No pedestrian network data loaded.' } };
@@ -358,11 +422,20 @@ export function calculateAllRoutes(
   }
 
   const shadeMap = new Map<string, ShadeRecord>(shadeRecords.map((r) => [r.edgeId, r]));
-  const departureSolarPos = calculateSolarPosition(departureHour, departureMinute);
   const depTimeStr = `${String(departureHour).padStart(2, '0')}:${String(departureMinute).padStart(2, '0')} IST`;
 
   // 1. Calculate Shortest Route
-  const shortestRaw = runDijkstra(network, originNodeId, destinationNodeId, shadeMap, 'shortest', departureSolarPos);
+  const shortestRaw = runDijkstra(
+    network,
+    originNodeId,
+    destinationNodeId,
+    shadeMap,
+    'shortest',
+    departureHour,
+    departureMinute,
+    walkingSpeedMps,
+    dateInput,
+  );
   if (!shortestRaw) {
     return { ok: false, error: { code: 'no-route', message: 'No connected pedestrian route exists between these locations.' } };
   }
@@ -374,6 +447,7 @@ export function calculateAllRoutes(
     departureHour,
     departureMinute,
     walkingSpeedMps,
+    dateInput,
   );
   const shortestPoly = reconstructPolyline(shortestRaw.nodeIds, shortestRaw.edges);
 
@@ -389,7 +463,17 @@ export function calculateAllRoutes(
   };
 
   // 2. Calculate More Canopy / Cooler Route (with 35% max detour guard)
-  let moreCanopyRaw = runDijkstra(network, originNodeId, destinationNodeId, shadeMap, 'more-canopy', departureSolarPos);
+  let moreCanopyRaw = runDijkstra(
+    network,
+    originNodeId,
+    destinationNodeId,
+    shadeMap,
+    'more-canopy',
+    departureHour,
+    departureMinute,
+    walkingSpeedMps,
+    dateInput,
+  );
   let moreCanopyEdges = moreCanopyRaw ? moreCanopyRaw.edges : shortestRaw.edges;
   let moreCanopyNodes = moreCanopyRaw ? moreCanopyRaw.nodeIds : shortestRaw.nodeIds;
   let moreCanopyMetrics = calculateRouteMetrics(
@@ -399,10 +483,21 @@ export function calculateAllRoutes(
     departureHour,
     departureMinute,
     walkingSpeedMps,
+    dateInput,
   );
 
   if (moreCanopyMetrics.detourPercentage > 35) {
-    const balancedCandidate = runDijkstra(network, originNodeId, destinationNodeId, shadeMap, 'balanced', departureSolarPos);
+    const balancedCandidate = runDijkstra(
+      network,
+      originNodeId,
+      destinationNodeId,
+      shadeMap,
+      'balanced',
+      departureHour,
+      departureMinute,
+      walkingSpeedMps,
+      dateInput,
+    );
     if (balancedCandidate) {
       moreCanopyEdges = balancedCandidate.edges;
       moreCanopyNodes = balancedCandidate.nodeIds;
@@ -413,6 +508,7 @@ export function calculateAllRoutes(
         departureHour,
         departureMinute,
         walkingSpeedMps,
+        dateInput,
       );
     }
   }
@@ -434,7 +530,17 @@ export function calculateAllRoutes(
   };
 
   // 3. Calculate Balanced Route
-  let balancedRaw = runDijkstra(network, originNodeId, destinationNodeId, shadeMap, 'balanced', departureSolarPos);
+  let balancedRaw = runDijkstra(
+    network,
+    originNodeId,
+    destinationNodeId,
+    shadeMap,
+    'balanced',
+    departureHour,
+    departureMinute,
+    walkingSpeedMps,
+    dateInput,
+  );
   let balancedEdges = balancedRaw ? balancedRaw.edges : shortestRaw.edges;
   let balancedNodes = balancedRaw ? balancedRaw.nodeIds : shortestRaw.nodeIds;
   let balancedMetrics = calculateRouteMetrics(
@@ -444,6 +550,7 @@ export function calculateAllRoutes(
     departureHour,
     departureMinute,
     walkingSpeedMps,
+    dateInput,
   );
 
   if (balancedMetrics.detourPercentage > 15) {

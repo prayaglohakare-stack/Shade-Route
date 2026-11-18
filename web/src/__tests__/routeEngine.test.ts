@@ -4,6 +4,7 @@ import {
   haversineMetres,
   edgeLength,
   snapCoordinateToNetwork,
+  interpolateSlotShade,
 } from '../routing/routeEngine';
 import type { CampusEdge, CampusNode, RouteNetwork, ShadeRecord } from '../data/types';
 
@@ -198,5 +199,68 @@ describe('Route Engine', () => {
     expect(snap).not.toBeNull();
     expect(snap?.nearestNodeId).toBe('node-A');
     expect(snap?.distanceMetres).toBeLessThan(5);
+  });
+
+  it('interpolates hourly slots linearly at edge arrival time', () => {
+    const slottedRecord: ShadeRecord = {
+      edgeId: 'edge-slot-test',
+      status: 'modeled',
+      slots: {
+        '2026-11-18': [
+          [0.10, 0.05, 0.05], // 07:00 (index 0)
+          [0.20, 0.10, 0.10], // 08:00 (index 1)
+          [0.30, 0.15, 0.15], // 09:00 (index 2)
+          [0.40, 0.20, 0.20], // 10:00 (index 3)
+          [0.50, 0.25, 0.25], // 11:00 (index 4)
+          [0.60, 0.30, 0.30], // 12:00 (index 5)
+          [0.80, 0.40, 0.40], // 13:00 (index 6)
+          [0.70, 0.35, 0.35], // 14:00 (index 7)
+          [0.50, 0.25, 0.25], // 15:00 (index 8)
+          [0.30, 0.15, 0.15], // 16:00 (index 9)
+          [0.10, 0.05, 0.05], // 17:00 (index 10)
+        ],
+      },
+    };
+
+    // Exactly at 12:00 (720 min) -> slot 5: [0.60, 0.30, 0.30]
+    const at12 = interpolateSlotShade(slottedRecord, 12 * 60, '2026-11-18');
+    expect(at12.combinedFrac).toBeCloseTo(0.60, 2);
+    expect(at12.treeFrac).toBeCloseTo(0.30, 2);
+    expect(at12.bldgFrac).toBeCloseTo(0.30, 2);
+
+    // Exactly at 13:00 (780 min) -> slot 6: [0.80, 0.40, 0.40]
+    const at13 = interpolateSlotShade(slottedRecord, 13 * 60, '2026-11-18');
+    expect(at13.combinedFrac).toBeCloseTo(0.80, 2);
+
+    // At 12:30 (750 min) -> midpoint between 12:00 (0.60) and 13:00 (0.80) = 0.70
+    const at1230 = interpolateSlotShade(slottedRecord, 12 * 60 + 30, '2026-11-18');
+    expect(at1230.combinedFrac).toBeCloseTo(0.70, 2);
+    expect(at1230.treeFrac).toBeCloseTo(0.35, 2);
+    expect(at1230.bldgFrac).toBeCloseTo(0.35, 2);
+
+    // Clamping: before 07:00 (e.g. 06:00) clamps to slot 0
+    const early = interpolateSlotShade(slottedRecord, 6 * 60, '2026-11-18');
+    expect(early.combinedFrac).toBeCloseTo(0.10, 2);
+
+    // Clamping: after 17:00 (e.g. 18:00) clamps to slot 10
+    const late = interpolateSlotShade(slottedRecord, 18 * 60, '2026-11-18');
+    expect(late.combinedFrac).toBeCloseTo(0.10, 2);
+  });
+
+  it('respects unknown status and bounds shade by available coverage', () => {
+    const unknownRecord: ShadeRecord = {
+      edgeId: 'edge-unknown-test',
+      status: 'unknown',
+      unknownFraction: 1.0,
+      slots: {
+        '2026-11-18': Array(11).fill([0.5, 0.3, 0.2]),
+      },
+    };
+
+    const result = interpolateSlotShade(unknownRecord, 12 * 60, '2026-11-18');
+    expect(result.unknownFrac).toBe(1.0);
+    expect(result.combinedFrac).toBe(0.0);
+    expect(result.treeFrac).toBe(0.0);
+    expect(result.bldgFrac).toBe(0.0);
   });
 });

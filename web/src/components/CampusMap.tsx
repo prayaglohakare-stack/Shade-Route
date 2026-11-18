@@ -3,7 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { BuildingProperties, Coordinate, Landmark, PilotGeoData, RouteNetwork } from '../data/types';
 import type { ComputedRoute, RouteMode } from '../routing/routeEngine';
-import { calculateSolarPosition, projectBuildingShadowPolygon, type SolarPreset } from '../routing/solarEngine';
+import { calculateSolarPosition, projectBuildingShadowPolygon, projectTreeCrownShadow, type SolarPreset } from '../routing/solarEngine';
 
 export type MapSelectionMode = 'origin' | 'destination' | null;
 
@@ -37,6 +37,7 @@ interface CampusMapProps {
   solarTime: SolarPreset;
   departureHour: number;
   departureMinute: number;
+  dateInput?: Date | string;
   layers: MapLayerVisibility;
   onMapPointSelected: (point: SelectedMapPoint) => void;
   onLandmarkSelected?: (landmark: Landmark) => void;
@@ -77,6 +78,7 @@ export function CampusMap({
   activeMode,
   departureHour,
   departureMinute,
+  dateInput = '2026-11-18',
   layers,
   onMapPointSelected,
   onLandmarkSelected,
@@ -336,7 +338,7 @@ export function CampusMap({
     }
   }, [geoData, network]);
 
-  // 3. Dynamic Building Shadows Projection based on departure hour/min
+  // 3. Dynamic Building and Displaced Tree Crown Shadows Projection based on departure hour/min and date
   useEffect(() => {
     const shadowGroup = buildingShadowsLayerRef.current;
     if (!shadowGroup || !geoData || !layers.buildingShadows) {
@@ -345,8 +347,9 @@ export function CampusMap({
     }
 
     shadowGroup.clearLayers();
-    const solarPos = calculateSolarPosition(departureHour, departureMinute);
+    const solarPos = calculateSolarPosition(departureHour, departureMinute, dateInput);
 
+    // 1. Building Shadow Polygons
     const bldgFeatures = geoData.buildings?.features || [];
     for (const bldg of bldgFeatures) {
       if (bldg.geometry.type !== 'Polygon') continue;
@@ -365,7 +368,27 @@ export function CampusMap({
         interactive: false,
       }).addTo(shadowGroup);
     }
-  }, [geoData, departureHour, departureMinute, layers.buildingShadows]);
+
+    // 2. Displaced Tree Crown Shadows (matching pipeline displacement: offset = height / tan(alt))
+    const treeFeatures = geoData.trees?.features || [];
+    for (const tree of treeFeatures) {
+      if (tree.geometry.type !== 'Point') continue;
+      const coords = tree.geometry.coordinates as [number, number];
+      const props = tree.properties as Record<string, any> | null;
+      const radiusM = Number(props?.radiusM) || (Number(props?.canopyDiaM) ? Number(props?.canopyDiaM) / 2 : 1.75);
+      const heightM = Number(props?.heightM) || 5.0;
+
+      const crownShadow = projectTreeCrownShadow(coords, radiusM, heightM, solarPos);
+      L.circle([crownShadow.center[1], crownShadow.center[0]], {
+        radius: crownShadow.radiusM,
+        color: 'transparent',
+        weight: 0,
+        fillColor: '#1e293b',
+        fillOpacity: 0.22,
+        interactive: false,
+      }).addTo(shadowGroup);
+    }
+  }, [geoData, departureHour, departureMinute, dateInput, layers.buildingShadows]);
 
   // 4. Uncertainty Highlights
   useEffect(() => {

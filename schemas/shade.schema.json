@@ -42,6 +42,12 @@
         "method": { "enum": ["field-observation", "geometry-model"] },
         "recordedAt": { "type": "string", "format": "date-time" },
         "sourceRef": { "$ref": "#/$defs/sourceRef" },
+        "treeShadeFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "buildingShadeFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "coveredFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "uncertainFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "contributingSources": { "type": "array", "items": { "type": "string" } },
+        "slots": { "type": "object" },
         "unknownFraction": { "type": "number", "minimum": 0, "maximum": 1 },
         "unknownReason": { "type": "string", "minLength": 1 }
       },
