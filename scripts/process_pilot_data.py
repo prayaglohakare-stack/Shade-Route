@@ -454,17 +454,45 @@ for w in osm_ways:
     if hw in ('motorway', 'motorway_link', 'trunk', 'trunk_link'): continue
     walkable_ways.append(w)
 
-# Build graph topology
+# Build graph topology: Filter to inside covered box & keep largest connected component
+candidate_edges = []
 adj = {}
+
 for w in walkable_ways:
     refs = w['nodes']
+    tags = w['tags']
+    path_class = map_path_class(tags)
+
     for i in range(len(refs) - 1):
         u, v = refs[i], refs[i+1]
-        if u in osm_nodes and v in osm_nodes:
-            adj.setdefault(u, set()).add(v)
-            adj.setdefault(v, set()).add(u)
+        if u not in osm_nodes or v not in osm_nodes:
+            continue
 
-# Find connected components and keep largest
+        pt_u = [round(osm_nodes[u]['lon'], 7), round(osm_nodes[u]['lat'], 7)]
+        pt_v = [round(osm_nodes[v]['lon'], 7), round(osm_nodes[v]['lat'], 7)]
+        seg_len = haversine(pt_u, pt_v)
+        if seg_len < 0.1: continue
+
+        mid_lon = (pt_u[0] + pt_v[0]) / 2.0
+        mid_lat = (pt_u[1] + pt_v[1]) / 2.0
+
+        # Fallback: Clip routable network to covered box (drop edges outside)
+        if not (BBOX["west"] <= mid_lon <= BBOX["east"] and BBOX["south"] <= mid_lat <= BBOX["north"]):
+            continue
+
+        candidate_edges.append({
+            "u": u,
+            "v": v,
+            "pt_u": pt_u,
+            "pt_v": pt_v,
+            "path_class": path_class,
+            "seg_len": seg_len,
+            "way_id": str(w['id'])
+        })
+        adj.setdefault(u, set()).add(v)
+        adj.setdefault(v, set()).add(u)
+
+# Find connected components on clipped graph and keep largest
 visited = set()
 components = []
 for n in adj:
@@ -612,196 +640,155 @@ total_tree_shade = 0.0
 total_bldg_shade = 0.0
 total_combined_shade = 0.0
 
-for w in walkable_ways:
-    refs = w['nodes']
-    tags = w['tags']
-    path_class = map_path_class(tags)
+for cand in candidate_edges:
+    u, v = cand['u'], cand['v']
+    u_id = f"node-{u}"
+    v_id = f"node-{v}"
+    if u_id not in network_node_ids or v_id not in network_node_ids:
+        continue
+
+    pt_u = cand['pt_u']
+    pt_v = cand['pt_v']
+    seg_len = cand['seg_len']
+    path_class = cand['path_class']
     is_covered = (path_class == 'covered-walkway')
 
-    for i in range(len(refs) - 1):
-        u, v = refs[i], refs[i+1]
-        u_id = f"node-{u}"
-        v_id = f"node-{v}"
-        if u_id not in network_node_ids or v_id not in network_node_ids:
-            continue
+    edge_id = f"edge-{edge_id_counter}"
+    edge_id_counter += 1
 
-        pt_u = [round(osm_nodes[u]['lon'], 7), round(osm_nodes[u]['lat'], 7)]
-        pt_v = [round(osm_nodes[v]['lon'], 7), round(osm_nodes[v]['lat'], 7)]
-        seg_len = haversine(pt_u, pt_v)
-        if seg_len < 0.1: continue
+    network_edges.append({
+        "edgeId": edge_id,
+        "fromNodeId": u_id,
+        "toNodeId": v_id,
+        "coordinates": [pt_u, pt_v],
+        "pathClass": path_class,
+        "accessStatus": "osm-derived",
+        "verificationStatus": "unverified",
+        "sourceRef": { "type": "osm", "sourceId": cand['way_id'] }
+    })
+    total_net_len += seg_len
 
-        edge_id = f"edge-{edge_id_counter}"
-        edge_id_counter += 1
+    p1_xy = to_local_xy(pt_u[0], pt_u[1])
+    p2_xy = to_local_xy(pt_v[0], pt_v[1])
+    seg_min_x, seg_max_x = min(p1_xy[0], p2_xy[0]), max(p1_xy[0], p2_xy[0])
+    seg_min_y, seg_max_y = min(p1_xy[1], p2_xy[1]), max(p1_xy[1], p2_xy[1])
 
-        network_edges.append({
-            "edgeId": edge_id,
-            "fromNodeId": u_id,
-            "toNodeId": v_id,
-            "coordinates": [pt_u, pt_v],
-            "pathClass": path_class,
-            "accessStatus": "osm-derived",
-            "verificationStatus": "unverified",
-            "sourceRef": { "type": "osm", "sourceId": str(w['id']) }
-        })
-        total_net_len += seg_len
+    # Pre-filter candidate trees within 100m buffer
+    gx1 = int(math.floor((seg_min_x - 100.0) / GRID_SIZE))
+    gx2 = int(math.floor((seg_max_x + 100.0) / GRID_SIZE))
+    gy1 = int(math.floor((seg_min_y - 100.0) / GRID_SIZE))
+    gy2 = int(math.floor((seg_max_y + 100.0) / GRID_SIZE))
+    
+    cand_trees = []
+    seen_tids = set()
+    for gx in range(gx1, gx2 + 1):
+        for gy in range(gy1, gy2 + 1):
+            for t in tree_grid.get((gx, gy), []):
+                if t['id'] not in seen_tids:
+                    seen_tids.add(t['id'])
+                    cand_trees.append(t)
 
-        # Check coverage: Edge is unknown if midpoint lies outside tree/building BBOX
-        mid_lon = (pt_u[0] + pt_v[0]) / 2.0
-        mid_lat = (pt_u[1] + pt_v[1]) / 2.0
-        is_outside = not (BBOX["west"] <= mid_lon <= BBOX["east"] and BBOX["south"] <= mid_lat <= BBOX["north"])
+    # Pre-filter candidate buildings within 90m buffer
+    cand_bldgs = []
+    for bldg in calibrated_buildings:
+        bx1, by1, bx2, by2 = bldg['bbox']
+        if not (bx2 < seg_min_x - 90.0 or bx1 > seg_max_x + 90.0 or by2 < seg_min_y - 90.0 or by1 > seg_max_y + 90.0):
+            cand_bldgs.append(bldg)
 
-        if is_outside:
-            shade_records.append({
-                "edgeId": edge_id,
-                "validFrom": "2026-11-18T00:00:00+05:30",
-                "validUntil": "2026-11-18T23:59:59+05:30",
-                "status": "unknown",
-                "shadeFraction": 0.0,
-                "treeShadeFraction": 0.0,
-                "buildingShadeFraction": 0.0,
-                "coveredFraction": 0.0,
-                "unknownFraction": 1.0,
-                "shadeFractionRange": {
-                    "low": 0.0,
-                    "high": 0.0
-                },
-                "method": "geometry-model",
-                "recordedAt": "2026-11-18T00:00:00+05:30",
-                "sourceRef": {
-                    "type": "other",
-                    "sourceId": "combined-bldg-tree-model-v2"
-                },
-                "contributingSources": [],
-                "uncertainFraction": 1.0,
-                "unknownReason": "Edge midpoint lies outside the tree/building data coverage box",
-                "slots": {
-                    "2026-11-18": [[0.0, 0.0, 0.0]] * len(HOURS),
-                    "2026-04-25": [[0.0, 0.0, 0.0]] * len(HOURS),
-                }
-            })
-            continue
+    edge_slots = {}
+    for d_str in DATES:
+        edge_slots[d_str] = []
+        for slot in SOLAR_SLOTS[d_str]:
+            dx_u = slot['dx_unit']
+            dy_u = slot['dy_unit']
 
-        p1_xy = to_local_xy(pt_u[0], pt_u[1])
-        p2_xy = to_local_xy(pt_v[0], pt_v[1])
-        seg_min_x, seg_max_x = min(p1_xy[0], p2_xy[0]), max(p1_xy[0], p2_xy[0])
-        seg_min_y, seg_max_y = min(p1_xy[1], p2_xy[1]), max(p1_xy[1], p2_xy[1])
+            # 1. Tree Shade (displaced crown: offset = height / tan(alt) along shadow dir)
+            tree_intervals = []
+            for t in cand_trees:
+                cx = t['xy'][0] + dx_u * t['height_m']
+                cy = t['xy'][1] + dy_u * t['height_m']
+                inter = segment_circle_intersection(p1_xy, p2_xy, (cx, cy), t['radius_m'])
+                if inter: tree_intervals.append(inter)
+            merged_tree_intervals = merge_intervals(tree_intervals)
+            tree_frac = min(1.0, sum(e - s for s, e in merged_tree_intervals))
 
-        # Pre-filter candidate trees within 100m buffer
-        gx1 = int(math.floor((seg_min_x - 100.0) / GRID_SIZE))
-        gx2 = int(math.floor((seg_max_x + 100.0) / GRID_SIZE))
-        gy1 = int(math.floor((seg_min_y - 100.0) / GRID_SIZE))
-        gy2 = int(math.floor((seg_max_y + 100.0) / GRID_SIZE))
-        
-        cand_trees = []
-        seen_tids = set()
-        for gx in range(gx1, gx2 + 1):
-            for gy in range(gy1, gy2 + 1):
-                for t in tree_grid.get((gx, gy), []):
-                    if t['id'] not in seen_tids:
-                        seen_tids.add(t['id'])
-                        cand_trees.append(t)
+            # 2. Building Shadow (footprint + wall shadow quads)
+            bldg_intervals = []
+            for bldg in cand_bldgs:
+                h = bldg['heightM']
+                dx = dx_u * h
+                dy = dy_u * h
+                bx1, by1, bx2, by2 = bldg['bbox']
+                sbx1 = min(bx1, bx1 + dx) - 2.0
+                sbx2 = max(bx2, bx2 + dx) + 2.0
+                sby1 = min(by1, by1 + dy) - 2.0
+                sby2 = max(by2, by2 + dy) + 2.0
+                if seg_max_x < sbx1 or seg_min_x > sbx2 or seg_max_y < sby1 or seg_min_y > sby2:
+                    continue
 
-        # Pre-filter candidate buildings within 90m buffer
-        cand_bldgs = []
-        for bldg in calibrated_buildings:
-            bx1, by1, bx2, by2 = bldg['bbox']
-            if not (bx2 < seg_min_x - 90.0 or bx1 > seg_max_x + 90.0 or by2 < seg_min_y - 90.0 or by1 > seg_max_y + 90.0):
-                cand_bldgs.append(bldg)
+                # Building footprint
+                bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, bldg['local_pts']))
+                # Wall shadow quads
+                npts = len(bldg['local_pts'])
+                for j in range(npts - 1):
+                    v1 = bldg['local_pts'][j]
+                    v2 = bldg['local_pts'][j + 1]
+                    quad = [v1, v2, (v2[0] + dx, v2[1] + dy), (v1[0] + dx, v1[1] + dy), v1]
+                    bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, quad))
+            merged_bldg_intervals = merge_intervals(bldg_intervals)
+            bldg_frac = min(1.0, sum(e - s for s, e in merged_bldg_intervals))
 
-        edge_slots = {}
-        for d_str in DATES:
-            edge_slots[d_str] = []
-            for slot in SOLAR_SLOTS[d_str]:
-                dx_u = slot['dx_unit']
-                dy_u = slot['dy_unit']
+            # 3. Permanent Covered Structures
+            covered_intervals = [(0.0, 1.0)] if is_covered else []
+            covered_frac = 1.0 if is_covered else 0.0
 
-                # 1. Tree Shade (displaced crown: offset = height / tan(alt) along shadow dir)
-                tree_intervals = []
-                for t in cand_trees:
-                    cx = t['xy'][0] + dx_u * t['height_m']
-                    cy = t['xy'][1] + dy_u * t['height_m']
-                    inter = segment_circle_intersection(p1_xy, p2_xy, (cx, cy), t['radius_m'])
-                    if inter: tree_intervals.append(inter)
-                merged_tree_intervals = merge_intervals(tree_intervals)
-                tree_frac = min(1.0, sum(e - s for s, e in merged_tree_intervals))
+            # 4. Strict Mathematical Union (ZERO DOUBLE COUNTING)
+            combined_intervals = merge_intervals(merged_tree_intervals + merged_bldg_intervals + covered_intervals)
+            combined_frac = min(1.0, sum(e - s for s, e in combined_intervals))
 
-                # 2. Building Shadow (footprint + wall shadow quads)
-                bldg_intervals = []
-                for bldg in cand_bldgs:
-                    h = bldg['heightM']
-                    dx = dx_u * h
-                    dy = dy_u * h
-                    bx1, by1, bx2, by2 = bldg['bbox']
-                    sbx1 = min(bx1, bx1 + dx) - 2.0
-                    sbx2 = max(bx2, bx2 + dx) + 2.0
-                    sby1 = min(by1, by1 + dy) - 2.0
-                    sby2 = max(by2, by2 + dy) + 2.0
-                    if seg_max_x < sbx1 or seg_min_x > sbx2 or seg_max_y < sby1 or seg_min_y > sby2:
-                        continue
+            edge_slots[d_str].append([
+                round(combined_frac, 2),
+                round(tree_frac, 2),
+                round(bldg_frac, 2)
+            ])
 
-                    # Building footprint
-                    bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, bldg['local_pts']))
-                    # Wall shadow quads
-                    npts = len(bldg['local_pts'])
-                    for j in range(npts - 1):
-                        v1 = bldg['local_pts'][j]
-                        v2 = bldg['local_pts'][j + 1]
-                        quad = [v1, v2, (v2[0] + dx, v2[1] + dy), (v1[0] + dx, v1[1] + dy), v1]
-                        bldg_intervals.extend(segment_polygon_intersection_intervals(p1_xy, p2_xy, quad))
-                merged_bldg_intervals = merge_intervals(bldg_intervals)
-                bldg_frac = min(1.0, sum(e - s for s, e in merged_bldg_intervals))
+    # Noon baseline slot (12:00 IST on 18 Nov, index 5 in HOURS 7..17)
+    noon_slot = edge_slots["2026-11-18"][5]
+    noon_comb, noon_tree, noon_bldg = noon_slot
 
-                # 3. Permanent Covered Structures
-                covered_intervals = [(0.0, 1.0)] if is_covered else []
-                covered_frac = 1.0 if is_covered else 0.0
+    total_tree_shade += seg_len * noon_tree
+    total_bldg_shade += seg_len * noon_bldg
+    total_combined_shade += seg_len * noon_comb
 
-                # 4. Strict Mathematical Union (ZERO DOUBLE COUNTING)
-                combined_intervals = merge_intervals(merged_tree_intervals + merged_bldg_intervals + covered_intervals)
-                combined_frac = min(1.0, sum(e - s for s, e in combined_intervals))
+    contributing = []
+    if noon_bldg > 0.01: contributing.append("osm-building-shadows")
+    if noon_tree > 0.01: contributing.append("pmc-tree-census-2019")
+    if is_covered: contributing.append("covered-walkway-structure")
 
-                edge_slots[d_str].append([
-                    round(combined_frac, 2),
-                    round(tree_frac, 2),
-                    round(bldg_frac, 2)
-                ])
-
-        # Noon baseline slot (12:00 IST on 18 Nov, index 5 in HOURS 7..17)
-        noon_slot = edge_slots["2026-11-18"][5]
-        noon_comb, noon_tree, noon_bldg = noon_slot
-
-        total_tree_shade += seg_len * noon_tree
-        total_bldg_shade += seg_len * noon_bldg
-        total_combined_shade += seg_len * noon_comb
-
-        contributing = []
-        if noon_bldg > 0.01: contributing.append("osm-building-shadows")
-        if noon_tree > 0.01: contributing.append("pmc-tree-census-2019")
-        if is_covered: contributing.append("covered-walkway-structure")
-
-        shade_records.append({
-            "edgeId": edge_id,
-            "validFrom": "2026-11-18T00:00:00+05:30",
-            "validUntil": "2026-11-18T23:59:59+05:30",
-            "status": "modeled",
-            "shadeFraction": noon_comb,
-            "treeShadeFraction": noon_tree,
-            "buildingShadeFraction": noon_bldg,
-            "coveredFraction": 1.0 if is_covered else 0.0,
-            "unknownFraction": 0.0,
-            "shadeFractionRange": {
-                "low": round(max(0.0, noon_comb * 0.8), 2),
-                "high": round(min(1.0, noon_comb * 1.2), 2)
-            },
-            "method": "geometry-model",
-            "recordedAt": "2026-11-18T00:00:00+05:30",
-            "sourceRef": {
-                "type": "other",
-                "sourceId": "combined-bldg-tree-model-v2"
-            },
-            "contributingSources": contributing,
-            "uncertainFraction": round(noon_bldg if any(b['isUncertain'] for b in cand_bldgs) else 0.0, 2),
-            "slots": edge_slots
-        })
+    shade_records.append({
+        "edgeId": edge_id,
+        "validFrom": "2026-11-18T00:00:00+05:30",
+        "validUntil": "2026-11-18T23:59:59+05:30",
+        "status": "modeled",
+        "shadeFraction": noon_comb,
+        "treeShadeFraction": noon_tree,
+        "buildingShadeFraction": noon_bldg,
+        "coveredFraction": 1.0 if is_covered else 0.0,
+        "unknownFraction": 0.0,
+        "shadeFractionRange": {
+            "low": round(max(0.0, noon_comb * 0.8), 2),
+            "high": round(min(1.0, noon_comb * 1.2), 2)
+        },
+        "method": "geometry-model",
+        "recordedAt": "2026-11-18T00:00:00+05:30",
+        "sourceRef": {
+            "type": "other",
+            "sourceId": "combined-bldg-tree-model-v2"
+        },
+        "contributingSources": contributing,
+        "uncertainFraction": round(noon_bldg if any(b['isUncertain'] for b in cand_bldgs) else 0.0, 2),
+        "slots": edge_slots
+    })
 
 print(f"Assembled {len(network_nodes)} network nodes and {len(network_edges)} edges.")
 print(f"Total network length: {total_net_len:.1f} m.")
@@ -814,8 +801,8 @@ print(f"Total Combined Shade: {total_combined_shade:.1f} m ({(total_combined_sha
 # -------------------------------------------------------------
 print("\nStep 4: Writing updated bundle files...")
 
-# Landmarks
-landmarks = [
+# Landmarks — candidate landmarks to re-snap; any landmark >30m from the clipped network is dropped
+candidate_landmarks = [
     {
         "id": "vit-main-gate",
         "name": "VIT Pune — Main Gate",
@@ -864,6 +851,34 @@ landmarks = [
         "category": "Campus Facility",
         "description": "Campus library and study centre access corridor.",
         "coordinates": [73.86847, 18.46349]
+    },
+    {
+        "id": "vit-gate-access",
+        "name": "VIT Pune — Student Pedestrian Gate",
+        "category": "Education / Campus Entrance",
+        "description": "Student gate access connecting campus to Bibwewadi pedestrian network.",
+        "coordinates": [73.8677105, 18.4632597]
+    },
+    {
+        "id": "vimalnath-temple-lane",
+        "name": "Shri Vimalnath Temple — Street Access",
+        "category": "Culture / Landmark",
+        "description": "Northern pedestrian access corridor to Shri Vimalnath Jain Temple.",
+        "coordinates": [73.8644622, 18.4672897]
+    },
+    {
+        "id": "shree-j-hospital-access",
+        "name": "Shree J. Hospital — Main Entrance",
+        "category": "Healthcare / Civic",
+        "description": "Street-level entrance to Shree J. Hospital on Swami Vivekanand corridor.",
+        "coordinates": [73.8645371, 18.4654236]
+    },
+    {
+        "id": "chintamani-chowk",
+        "name": "Chintamani Nagar Central Crossroad",
+        "category": "Transit / Crossroad",
+        "description": "Central intersection connecting residential lanes in Chintamani Nagar Part 1.",
+        "coordinates": [73.8657142, 18.4653394]
     }
 ]
 
@@ -877,12 +892,18 @@ def find_nearest_node(lon, lat):
             best_id = n['nodeId']
     return best_id, best_dist
 
-for lm in landmarks:
+landmarks = []
+for lm in candidate_landmarks:
     nid, dist = find_nearest_node(lm['coordinates'][0], lm['coordinates'][1])
-    lm['nearestNodeId'] = nid
-    lm['snapDistanceMetres'] = round(dist, 1)
-    target_node = next(n for n in network_nodes if n['nodeId'] == nid)
-    lm['snappedCoordinates'] = target_node['coordinates']
+    # Fallback requirement: drop any landmark that no longer snaps within 30 m
+    if dist <= 30.0:
+        lm['nearestNodeId'] = nid
+        lm['snapDistanceMetres'] = round(dist, 1)
+        target_node = next(n for n in network_nodes if n['nodeId'] == nid)
+        lm['snappedCoordinates'] = target_node['coordinates']
+        landmarks.append(lm)
+    else:
+        print(f"  [DROPPED LANDMARK] {lm['id']} ({lm['name']}): snap distance {dist:.1f} m exceeds 30 m.")
 
 manifest = {
     "schemaVersion": 1,

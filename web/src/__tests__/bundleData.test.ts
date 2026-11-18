@@ -16,10 +16,10 @@ describe('Pilot Bundle & Real Route Integration', () => {
     if (result.status !== 'ready') return;
 
     const { network, shadeRecords, geoData } = result.bundle;
-    expect(network.nodes.length).toBe(698);
-    expect(network.edges.length).toBe(836);
-    expect(shadeRecords.length).toBe(836);
-    expect(geoData?.landmarks.length).toBeGreaterThanOrEqual(7);
+    expect(network.nodes.length).toBe(457);
+    expect(network.edges.length).toBe(584);
+    expect(shadeRecords.length).toBe(584);
+    expect(geoData?.landmarks.length).toBeGreaterThanOrEqual(6);
     expect(geoData?.trees.features.length).toBe(3738);
     expect(geoData?.buildings.features.length).toBe(376);
 
@@ -36,22 +36,22 @@ describe('Pilot Bundle & Real Route Integration', () => {
     expect(sampleRecord).toHaveProperty('uncertainFraction');
   }, 15000);
 
-  it('calculates real routes between Lake Town Junction and VIT Main Gate', async () => {
+  it('calculates real routes between Chintamani Garden and VIT Gate Access', async () => {
     const result = await campusRepository.loadRouteBundle('in-mh-pune-chintamani-bibwewadi');
     if (result.status !== 'ready') throw new Error('Bundle not ready');
 
     const { network, shadeRecords, geoData } = result.bundle;
-    const lakeTown = geoData?.landmarks.find((l) => l.id === 'lake-town-junction');
-    const vitGate = geoData?.landmarks.find((l) => l.id === 'vit-main-gate');
+    const chintamaniGarden = geoData?.landmarks.find((l) => l.id === 'chintamani-garden');
+    const vitGate = geoData?.landmarks.find((l) => l.id === 'vit-gate-access');
 
-    expect(lakeTown).toBeDefined();
+    expect(chintamaniGarden).toBeDefined();
     expect(vitGate).toBeDefined();
 
-    if (!lakeTown || !vitGate) return;
+    if (!chintamaniGarden || !vitGate) return;
 
     const routeOutcome = calculateAllRoutes(
       network,
-      lakeTown.nearestNodeId,
+      chintamaniGarden.nearestNodeId,
       vitGate.nearestNodeId,
       shadeRecords,
     );

@@ -5,6 +5,7 @@ import {
   edgeLength,
   snapCoordinateToNetwork,
   interpolateSlotShade,
+  resolveSeasonDateKey,
   MinHeap,
 } from '../routing/routeEngine';
 import type { CampusEdge, CampusNode, RouteNetwork, ShadeRecord } from '../data/types';
@@ -353,5 +354,108 @@ describe('Route Engine', () => {
     // Sun savings is < 1 min, so shortest must be recommended!
     expect(result.routes.recommendedMode).toBe('shortest');
     expect(result.routes.summaryExplanation).toContain('Shortest route is already about as shaded');
+  });
+
+  it('Phase A (a): a route through unknown edges can never show fewer sun-minutes than the same route with those edges counted as sunny', () => {
+    // Edge with unknownFraction = 1.0
+    const shadeWithUnknown: ShadeRecord[] = [
+      { edgeId: 'edge-AB', status: 'unknown', shadeFraction: 0.0, unknownFraction: 1.0 },
+      { edgeId: 'edge-BC', status: 'unknown', shadeFraction: 0.0, unknownFraction: 1.0 },
+      { edgeId: 'edge-AD', status: 'modeled', shadeFraction: 0.8, treeShadeFraction: 0.8 },
+      { edgeId: 'edge-DC', status: 'modeled', shadeFraction: 0.8, treeShadeFraction: 0.8 },
+    ];
+
+    // Reference shade where AB and BC are explicitly 100% exposed/sunny
+    const shadeWithSunny: ShadeRecord[] = [
+      { edgeId: 'edge-AB', status: 'modeled', shadeFraction: 0.0, unknownFraction: 0.0 },
+      { edgeId: 'edge-BC', status: 'modeled', shadeFraction: 0.0, unknownFraction: 0.0 },
+      { edgeId: 'edge-AD', status: 'modeled', shadeFraction: 0.8, treeShadeFraction: 0.8 },
+      { edgeId: 'edge-DC', status: 'modeled', shadeFraction: 0.8, treeShadeFraction: 0.8 },
+    ];
+
+    const resultUnknown = calculateAllRoutes(network, 'node-A', 'node-C', shadeWithUnknown);
+    const resultSunny = calculateAllRoutes(network, 'node-A', 'node-C', shadeWithSunny);
+
+    expect(resultUnknown.ok).toBe(true);
+    expect(resultSunny.ok).toBe(true);
+    if (!resultUnknown.ok || !resultSunny.ok) return;
+
+    // Unknown route headline sun-minutes must be >= sunny route sun-minutes (never fewer sun minutes!)
+    expect(resultUnknown.routes.shortest.metrics.sunMinutes).toBeGreaterThanOrEqual(
+      resultSunny.routes.shortest.metrics.sunMinutes,
+    );
+    // Headline pessimistic sun-minutes must equal fully sunny exposure
+    expect(resultUnknown.routes.shortest.metrics.sunMinutes).toBe(
+      resultSunny.routes.shortest.metrics.sunMinutes,
+    );
+    // Range must reflect optimistic vs pessimistic: optimistic <= pessimistic
+    expect(resultUnknown.routes.shortest.metrics.sunMinutesOptimistic).toBeLessThanOrEqual(
+      resultUnknown.routes.shortest.metrics.sunMinutes,
+    );
+    expect(resultUnknown.routes.shortest.metrics.sunMinutesRange).toContain('–');
+  });
+
+  it('Phase A (b): changing departure time changes both route metrics and slot shade consistently', () => {
+    // Generate precomputed slot shade records for test edges
+    const hourlySlotsNov: [number, number, number][] = [
+      [0.85, 0.40, 0.70], // 07:00
+      [0.75, 0.35, 0.60], // 08:00
+      [0.60, 0.30, 0.45], // 09:00
+      [0.45, 0.25, 0.30], // 10:00
+      [0.30, 0.20, 0.15], // 11:00
+      [0.20, 0.15, 0.10], // 12:00
+      [0.25, 0.18, 0.12], // 13:00
+      [0.40, 0.25, 0.25], // 14:00
+      [0.55, 0.30, 0.40], // 15:00
+      [0.70, 0.35, 0.55], // 16:00
+      [0.85, 0.40, 0.70], // 17:00
+    ];
+
+    const slotShade: ShadeRecord[] = [
+      { edgeId: 'edge-AB', status: 'modeled', shadeFraction: 0.2, slots: { '2026-11-18': hourlySlotsNov, '2026-04-25': hourlySlotsNov } },
+      { edgeId: 'edge-BC', status: 'modeled', shadeFraction: 0.2, slots: { '2026-11-18': hourlySlotsNov, '2026-04-25': hourlySlotsNov } },
+      { edgeId: 'edge-AD', status: 'modeled', shadeFraction: 0.6, slots: { '2026-11-18': hourlySlotsNov, '2026-04-25': hourlySlotsNov } },
+      { edgeId: 'edge-DC', status: 'modeled', shadeFraction: 0.6, slots: { '2026-11-18': hourlySlotsNov, '2026-04-25': hourlySlotsNov } },
+    ];
+
+    const morningResult = calculateAllRoutes(network, 'node-A', 'node-C', slotShade, 9, 30);
+    const noonResult = calculateAllRoutes(network, 'node-A', 'node-C', slotShade, 12, 30);
+    const afternoonResult = calculateAllRoutes(network, 'node-A', 'node-C', slotShade, 16, 30);
+
+    expect(morningResult.ok).toBe(true);
+    expect(noonResult.ok).toBe(true);
+    expect(afternoonResult.ok).toBe(true);
+    if (!morningResult.ok || !noonResult.ok || !afternoonResult.ok) return;
+
+    // Direct sun minutes at noon must be higher than morning and late afternoon
+    expect(noonResult.routes.shortest.metrics.sunMinutes).toBeGreaterThan(
+      morningResult.routes.shortest.metrics.sunMinutes,
+    );
+    expect(noonResult.routes.shortest.metrics.sunMinutes).toBeGreaterThan(
+      afternoonResult.routes.shortest.metrics.sunMinutes,
+    );
+  });
+
+  it('Phase A (c): arrival after 17:00 is handled explicitly and clamps with visible note', () => {
+    // Departure at 16:55 with a walk that extends past 17:00
+    const result = calculateAllRoutes(network, 'node-A', 'node-C', sampleShade, 16, 58, 0.5); // slow speed so walk takes > 5 min
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    // Must flag arrival after 17:00
+    expect(result.routes.shortest.metrics.isArrivalAfter17).toBe(true);
+    expect(result.routes.shortest.explanation).toContain('17:00 IST');
+  });
+
+  it('Phase A (6): season control strictly supports Nov and Apr, throws on uncalibrated dates', () => {
+    expect(resolveSeasonDateKey('2026-11-18')).toBe('2026-11-18');
+    expect(resolveSeasonDateKey('2026-04-25')).toBe('2026-04-25');
+    expect(resolveSeasonDateKey(new Date('2026-11-05T12:00:00Z'))).toBe('2026-11-18');
+    expect(resolveSeasonDateKey(new Date('2026-04-10T12:00:00Z'))).toBe('2026-04-25');
+
+    // Any other month/season must throw an explicit error rather than silently falling back
+    expect(() => resolveSeasonDateKey('2026-07-15')).toThrow(
+      /Uncalibrated solar season month/,
+    );
   });
 });

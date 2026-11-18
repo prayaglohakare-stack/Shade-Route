@@ -872,6 +872,19 @@ body {
   border-left-color: #285D49;
 }
 
+.sunset-clamp-note {
+  font-size: 0.72rem;
+  color: #92400e;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--radius-sm);
+  padding: 3px 7px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
 .headline-sun-metric {
   display: flex;
   align-items: baseline;

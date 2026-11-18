@@ -82,8 +82,8 @@ export default function App() {
 
       if (result.status === 'ready' && result.bundle.geoData?.landmarks?.length) {
         const lms = result.bundle.geoData.landmarks;
-        const defaultOriginLm = lms.find((l) => l.id === 'lake-town-junction') || lms[0];
-        const defaultDestLm = lms.find((l) => l.id === 'vit-main-gate') || lms[1];
+        const defaultOriginLm = lms.find((l) => l.id === 'chintamani-garden') || lms[0];
+        const defaultDestLm = lms.find((l) => l.id === 'vit-gate-access') || lms[1];
 
         if (defaultOriginLm && defaultDestLm) {
           setOrigin({

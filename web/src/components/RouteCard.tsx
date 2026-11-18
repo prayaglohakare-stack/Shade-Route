@@ -71,7 +71,7 @@ export function RouteCard({
       <div className={`card-headline-row ${headlineBorderClass}`}>
         <div className="headline-sun-metric">
           <span className="sun-icon-mini" aria-hidden="true">☀️</span>
-          <span className="sun-metric-value">{route.metrics.sunMinutes} min</span>
+          <span className="sun-metric-value">{route.metrics.sunMinutesRange}</span>
           <span className="sun-metric-label">in direct sun</span>
         </div>
         <div className="headline-distance-info">
@@ -86,6 +86,13 @@ export function RouteCard({
           {isShortest && <span className="detour-delta">(shortest)</span>}
         </div>
       </div>
+
+      {/* Sunset Clamping Notice if arrival is after 17:00 */}
+      {route.metrics.isArrivalAfter17 && (
+        <div className="sunset-clamp-note" role="note">
+          <span aria-hidden="true">🌅</span> Walk extends past 17:00 IST; solar shade clamped to 17:00 sunset model.
+        </div>
+      )}
 
       {/* 2. Shade Ribbon: Sunny / Shaded / Unknown with Hatching */}
       <ShadeRibbon

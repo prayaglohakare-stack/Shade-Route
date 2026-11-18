@@ -6,10 +6,14 @@ export const DEFAULT_WALKING_SPEED_MPS = 1.25; // 1.25 m/s ≈ 4.5 km/h standard
 export type RouteMode = 'shortest' | 'balanced' | 'more-canopy';
 
 export interface RouteMetrics {
-  sunMinutes: number; // Headline metric: minutes in direct sun (1 decimal)
+  sunMinutes: number; // Headline metric: minutes in direct sun (1 decimal), pessimistic safety net
+  sunMinutesOptimistic: number; // Minutes in direct sun if unknown edges are treated as shaded
+  sunMinutesPessimistic: number; // Minutes in direct sun with unknown edges counted as fully sunny
+  sunMinutesRange: string; // Formatted range e.g. "8.2 min" or "8.2 – 9.5 min"
+  isArrivalAfter17: boolean; // Flag if pedestrian arrives after 17:00 IST
   distanceMetres: number;
   walkingMinutes: number;
-  sunMinutesSavedVsShortest: number; // Minutes in direct sun saved vs shortest route
+  sunMinutesSavedVsShortest: number; // Minutes in direct sun saved vs shortest route (pessimistic)
   detourDistanceMetres: number; // Extra metres vs shortest route
   detourPercentage: number; // % longer than shortest route
   combinedShadeMetres: number;
@@ -117,6 +121,26 @@ export interface DynamicEdgeShade {
   uncertainFrac: number;
 }
 
+export type SolarSeasonKey = '2026-11-18' | '2026-04-25';
+
+/**
+ * Resolves solar season key strictly between November (winter) and April (summer).
+ * Throws an explicit error for any uncalibrated month so other dates cannot silently fall back.
+ */
+export function resolveSeasonDateKey(dateInput: Date | string = '2026-11-18'): SolarSeasonKey {
+  if (typeof dateInput === 'string') {
+    const trimmed = dateInput.trim().toLowerCase();
+    if (trimmed === '2026-11-18' || trimmed === 'nov' || trimmed === 'winter') return '2026-11-18';
+    if (trimmed === '2026-04-25' || trimmed === 'apr' || trimmed === 'summer') return '2026-04-25';
+  }
+  const { month } = parseDateInput(dateInput);
+  if (month === 11) return '2026-11-18';
+  if (month === 4) return '2026-04-25';
+  throw new Error(
+    `Uncalibrated solar season month: ${month}. Solar shadow model is strictly calibrated for November (2026-11-18) and April (2026-04-25).`,
+  );
+}
+
 /**
  * Interpolates shade fractions between the two nearest hourly slots
  * at the edge arrival time, using precomputed NOAA solar slot data.
@@ -137,9 +161,7 @@ export function interpolateSlotShade(
     };
   }
 
-  const { month } = parseDateInput(dateInput);
-  // Match precomputed slot dates: 2026-04-25 (month 4) or 2026-11-18 (default/winter)
-  const dateKey = month === 4 ? '2026-04-25' : '2026-11-18';
+  const dateKey = resolveSeasonDateKey(dateInput);
   const slots = shade.slots?.[dateKey];
 
   if (!slots || slots.length < 11) {
@@ -168,6 +190,7 @@ export function interpolateSlotShade(
   if (hourFloat <= 7.0) {
     [combinedFrac, treeFrac, bldgFrac] = slots[0];
   } else if (hourFloat >= 17.0) {
+    // Explicit clamp to sunset slot (17:00 IST) for arrivals after 17:00
     [combinedFrac, treeFrac, bldgFrac] = slots[10];
   } else {
     // Linear interpolation between the two nearest hourly slots
@@ -291,7 +314,9 @@ export function calculateRouteMetrics(
   let exposedDist = 0;
   let unknownDist = 0;
   let uncertainDist = 0;
-  let totalSunSeconds = 0;
+  let totalPessimisticSunSeconds = 0;
+  let totalOptimisticSunSeconds = 0;
+  let isArrivalAfter17 = false;
 
   let elapsedSeconds = 0;
 
@@ -301,27 +326,36 @@ export function calculateRouteMetrics(
 
     // Time when pedestrian arrives at this edge
     const edgeArrivalMinutes = departureHour * 60 + departureMinute + elapsedSeconds / 60;
+    if (edgeArrivalMinutes > 17 * 60) {
+      isArrivalAfter17 = true;
+    }
+
     const isCovered = edge.pathClass === 'covered-walkway';
     const shade = shadeMap.get(edge.edgeId);
     const dynamicShade = interpolateSlotShade(shade, edgeArrivalMinutes, dateInput);
 
-    if (dynamicShade.unknownFrac >= 1.0) {
-      unknownDist += len;
-    } else if (isCovered) {
+    const edgeCombinedShade = isCovered ? len : len * dynamicShade.combinedFrac;
+    const edgeUnknown = isCovered ? 0.0 : len * dynamicShade.unknownFrac;
+
+    // Safety net: unknown length is counted as fully sunny in pessimistic headline metric
+    const edgeExposedPessimistic = isCovered ? 0.0 : len * Math.max(0.0, 1.0 - dynamicShade.combinedFrac);
+    // Optimistic calculation: unknown length is treated as shaded
+    const edgeExposedOptimistic = isCovered ? 0.0 : len * Math.max(0.0, 1.0 - dynamicShade.combinedFrac - dynamicShade.unknownFrac);
+
+    combinedShadeDist += edgeCombinedShade;
+    unknownDist += edgeUnknown;
+    exposedDist += edgeExposedPessimistic;
+
+    if (isCovered) {
       coveredDist += len;
-      combinedShadeDist += len;
     } else {
-      const edgeCombinedShade = len * dynamicShade.combinedFrac;
-      combinedShadeDist += edgeCombinedShade;
       buildingDist += len * dynamicShade.bldgFrac;
       canopyDist += len * dynamicShade.treeFrac;
-      unknownDist += len * dynamicShade.unknownFrac;
-      // Never count unknown as exposed
-      const edgeExposed = len * Math.max(0.0, 1.0 - dynamicShade.combinedFrac - dynamicShade.unknownFrac);
-      exposedDist += edgeExposed;
       uncertainDist += len * dynamicShade.uncertainFrac;
-      totalSunSeconds += edgeExposed / walkingSpeedMps;
     }
+
+    totalPessimisticSunSeconds += edgeExposedPessimistic / walkingSpeedMps;
+    totalOptimisticSunSeconds += edgeExposedOptimistic / walkingSpeedMps;
 
     elapsedSeconds += len / walkingSpeedMps;
   }
@@ -333,13 +367,24 @@ export function calculateRouteMetrics(
   const detourPercentage = shortestDistance > 0 && totalDist > shortestDistance
     ? Math.round(((totalDist - shortestDistance) / shortestDistance) * 1000) / 10
     : 0;
-  const sunMinutes = Math.round((totalSunSeconds / 60) * 10) / 10;
+
+  const sunMinutes = Math.round((totalPessimisticSunSeconds / 60) * 10) / 10;
+  const sunMinutesOptimistic = Math.round((totalOptimisticSunSeconds / 60) * 10) / 10;
+  const sunMinutesPessimistic = sunMinutes;
+  const sunMinutesRange = (unknownDist > 0.5 && sunMinutes !== sunMinutesOptimistic)
+    ? `${sunMinutesOptimistic.toFixed(1)} – ${sunMinutes.toFixed(1)} min`
+    : `${sunMinutes.toFixed(1)} min`;
+
   const sunMinutesSavedVsShortest = shortestSunMinutes > 0
     ? Math.round(Math.max(0, shortestSunMinutes - sunMinutes) * 10) / 10
     : 0;
 
   return {
     sunMinutes,
+    sunMinutesOptimistic,
+    sunMinutesPessimistic,
+    sunMinutesRange,
+    isArrivalAfter17,
     distanceMetres: Math.round(totalDist),
     walkingMinutes: Math.round((totalDist / walkingSpeedMps / 60) * 10) / 10,
     sunMinutesSavedVsShortest,
@@ -523,7 +568,8 @@ function runConstrainedCoolerRoute(
       const dynamicShade = interpolateSlotShade(shade, currentArrivalMin, dateInput);
 
       const combinedFrac = isCovered ? 1.0 : dynamicShade.combinedFrac;
-      const exposedFrac = Math.max(0.0, 1.0 - combinedFrac - dynamicShade.unknownFrac);
+      // Safety net: unknown length is counted as fully sunny in the search cost
+      const exposedFrac = Math.max(0.0, 1.0 - combinedFrac);
       const edgeSunSeconds = (len * exposedFrac) / walkingSpeedMps;
       const newCost = state.cost + edgeSunSeconds;
 
@@ -630,7 +676,8 @@ function runBalancedRoute(
 
       const combinedFrac = isCovered ? 1.0 : dynamicShade.combinedFrac;
       const shadedLen = len * combinedFrac;
-      const exposedLen = Math.max(0.0, len * (1.0 - combinedFrac - dynamicShade.unknownFrac));
+      // Safety net: unknown length is counted as fully sunny in the search cost
+      const exposedLen = Math.max(0.0, len * (1.0 - combinedFrac));
       // Documented weight: exposedLen + 0.50 * shadedLen
       const edgeWeight = exposedLen + 0.50 * shadedLen;
       const newCost = state.cost + edgeWeight;
@@ -728,6 +775,7 @@ export function calculateAllRoutes(
   );
   const shortestPoly = reconstructPolyline(shortestRaw.nodeIds, shortestRaw.edges);
 
+  const shortestSunsetNote = shortestMetrics.isArrivalAfter17 ? ' Note: Pedestrian arrives after 17:00 IST (solar model clamped to sunset slot).' : '';
   const shortestRoute: ComputedRoute = {
     mode: 'shortest',
     modeTitle: 'Shortest Distance',
@@ -736,7 +784,7 @@ export function calculateAllRoutes(
     coordinates: shortestPoly,
     metrics: shortestMetrics,
     isCoincidentWithShortest: true,
-    explanation: `Direct route prioritizing minimum distance (${shortestMetrics.distanceMetres} m, ~${shortestMetrics.walkingMinutes} min). Direct sun: ${shortestMetrics.sunMinutes} min. Combined shade is ${shortestMetrics.combinedShadePercentage}% (Buildings: ${shortestMetrics.buildingPercentage}%, Trees: ${shortestMetrics.canopyPercentage}%).`,
+    explanation: `Direct route prioritizing minimum distance (${shortestMetrics.distanceMetres} m, ~${shortestMetrics.walkingMinutes} min). Direct sun: ${shortestMetrics.sunMinutes} min. Combined shade is ${shortestMetrics.combinedShadePercentage}% (Buildings: ${shortestMetrics.buildingPercentage}%, Trees: ${shortestMetrics.canopyPercentage}%).${shortestSunsetNote}`,
   };
 
   // 2. Calculate Cooler Route via Constrained Search (min sun-minutes subject to detour <= 25%)
@@ -766,14 +814,15 @@ export function calculateAllRoutes(
 
   const moreCanopyIsCoincident = areRoutesIdentical(shortestRaw.edges, moreCanopyEdges);
   const sunMinutesSavedByCooler = Math.max(0, Math.round((shortestMetrics.sunMinutes - moreCanopyMetrics.sunMinutes) * 10) / 10);
+  const coolerSunsetNote = moreCanopyMetrics.isArrivalAfter17 ? ' Note: Pedestrian arrives after 17:00 IST (solar model clamped to sunset slot).' : '';
 
   let moreCanopyExplanation = '';
   if (moreCanopyIsCoincident) {
-    moreCanopyExplanation = 'The shortest route already follows the most shaded corridor available for this destination.';
+    moreCanopyExplanation = `The shortest route already follows the most shaded corridor available for this destination.${coolerSunsetNote}`;
   } else if (sunMinutesSavedByCooler < 1.0) {
-    moreCanopyExplanation = 'Shortest route is already about as shaded';
+    moreCanopyExplanation = `Shortest route is already about as shaded${coolerSunsetNote}`;
   } else {
-    moreCanopyExplanation = `Saves ${sunMinutesSavedByCooler.toFixed(1)} min in direct sun (${moreCanopyMetrics.sunMinutes} min vs ${shortestMetrics.sunMinutes} min) with a +${moreCanopyMetrics.detourPercentage}% detour (+${moreCanopyMetrics.detourDistanceMetres} m).`;
+    moreCanopyExplanation = `Saves ${sunMinutesSavedByCooler.toFixed(1)} min in direct sun (${moreCanopyMetrics.sunMinutes} min vs ${shortestMetrics.sunMinutes} min) with a +${moreCanopyMetrics.detourPercentage}% detour (+${moreCanopyMetrics.detourDistanceMetres} m).${coolerSunsetNote}`;
   }
 
   const moreCanopyRoute: ComputedRoute = {
@@ -814,14 +863,15 @@ export function calculateAllRoutes(
 
   const balancedIsCoincident = areRoutesIdentical(shortestRaw.edges, balancedEdges);
   const sunMinutesSavedByBalanced = Math.max(0, Math.round((shortestMetrics.sunMinutes - balancedMetrics.sunMinutes) * 10) / 10);
+  const balancedSunsetNote = balancedMetrics.isArrivalAfter17 ? ' Note: Pedestrian arrives after 17:00 IST (solar model clamped to sunset slot).' : '';
 
   let balancedExplanation = '';
   if (balancedIsCoincident) {
-    balancedExplanation = 'Identical to shortest route; no intermediate shaded corridor exists within a 15% distance limit.';
+    balancedExplanation = `Identical to shortest route; no intermediate shaded corridor exists within a 15% distance limit.${balancedSunsetNote}`;
   } else if (sunMinutesSavedByBalanced < 0.5) {
-    balancedExplanation = 'Shortest route is already about as shaded';
+    balancedExplanation = `Shortest route is already about as shaded${balancedSunsetNote}`;
   } else {
-    balancedExplanation = `Balanced route avoids ${sunMinutesSavedByBalanced.toFixed(1)} min of direct sun for only +${balancedMetrics.detourPercentage}% walking distance (+${balancedMetrics.detourDistanceMetres} m).`;
+    balancedExplanation = `Balanced route avoids ${sunMinutesSavedByBalanced.toFixed(1)} min of direct sun for only +${balancedMetrics.detourPercentage}% walking distance (+${balancedMetrics.detourDistanceMetres} m).${balancedSunsetNote}`;
   }
 
   const balancedRoute: ComputedRoute = {

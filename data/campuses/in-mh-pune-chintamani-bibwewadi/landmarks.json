@@ -1,21 +1,5 @@
 [
   {
-    "id": "vit-main-gate",
-    "name": "VIT Pune \u2014 Main Gate",
-    "category": "Education / Campus Entrance",
-    "description": "Primary student entrance to Vishwakarma Institute of Technology.",
-    "coordinates": [
-      73.86795,
-      18.46368
-    ],
-    "nearestNodeId": "node-4332244859",
-    "snapDistanceMetres": 53.1,
-    "snappedCoordinates": [
-      73.8677105,
-      18.4632597
-    ]
-  },
-  {
     "id": "chintamani-garden",
     "name": "Chintamani Nagar Public Park",
     "category": "Green Space / Recreation",
@@ -29,54 +13,6 @@
     "snappedCoordinates": [
       73.8657203,
       18.4650712
-    ]
-  },
-  {
-    "id": "shri-vimalnath-temple",
-    "name": "Shri Vimalnath Swami Jain Temple",
-    "category": "Culture / Landmark",
-    "description": "Historic Jain temple at northern residential corridor.",
-    "coordinates": [
-      73.86482,
-      18.46745
-    ],
-    "nearestNodeId": "node-10230350571",
-    "snapDistanceMetres": 41.7,
-    "snappedCoordinates": [
-      73.8644622,
-      18.4672897
-    ]
-  },
-  {
-    "id": "shree-j-hospital",
-    "name": "Shree J. Hospital",
-    "category": "Healthcare / Civic",
-    "description": "Community healthcare facility along Swami Vivekanand Marg corridor.",
-    "coordinates": [
-      73.86419,
-      18.4653
-    ],
-    "nearestNodeId": "node-7146481726",
-    "snapDistanceMetres": 39.1,
-    "snappedCoordinates": [
-      73.8645371,
-      18.4654236
-    ]
-  },
-  {
-    "id": "lake-town-junction",
-    "name": "Lake Town Road Junction",
-    "category": "Transit / Crossroad",
-    "description": "Southern transit junction connecting Bibwewadi main road to Upper Indira Nagar.",
-    "coordinates": [
-      73.86452,
-      18.4619
-    ],
-    "nearestNodeId": "node-10223133167",
-    "snapDistanceMetres": 75.3,
-    "snappedCoordinates": [
-      73.8651445,
-      18.4615724
     ]
   },
   {
@@ -96,19 +32,67 @@
     ]
   },
   {
-    "id": "vit-library",
-    "name": "VIT Central Library Entrance",
-    "category": "Campus Facility",
-    "description": "Campus library and study centre access corridor.",
+    "id": "vit-gate-access",
+    "name": "VIT Pune \u2014 Student Pedestrian Gate",
+    "category": "Education / Campus Entrance",
+    "description": "Student gate access connecting campus to Bibwewadi pedestrian network.",
     "coordinates": [
-      73.86847,
-      18.46349
+      73.8677105,
+      18.4632597
     ],
-    "nearestNodeId": "node-2235086352",
-    "snapDistanceMetres": 49.5,
+    "nearestNodeId": "node-4332244859",
+    "snapDistanceMetres": 0.0,
     "snappedCoordinates": [
-      73.8689391,
-      18.4634742
+      73.8677105,
+      18.4632597
+    ]
+  },
+  {
+    "id": "vimalnath-temple-lane",
+    "name": "Shri Vimalnath Temple \u2014 Street Access",
+    "category": "Culture / Landmark",
+    "description": "Northern pedestrian access corridor to Shri Vimalnath Jain Temple.",
+    "coordinates": [
+      73.8644622,
+      18.4672897
+    ],
+    "nearestNodeId": "node-10230350571",
+    "snapDistanceMetres": 0.0,
+    "snappedCoordinates": [
+      73.8644622,
+      18.4672897
+    ]
+  },
+  {
+    "id": "shree-j-hospital-access",
+    "name": "Shree J. Hospital \u2014 Main Entrance",
+    "category": "Healthcare / Civic",
+    "description": "Street-level entrance to Shree J. Hospital on Swami Vivekanand corridor.",
+    "coordinates": [
+      73.8645371,
+      18.4654236
+    ],
+    "nearestNodeId": "node-7146481726",
+    "snapDistanceMetres": 0.0,
+    "snappedCoordinates": [
+      73.8645371,
+      18.4654236
+    ]
+  },
+  {
+    "id": "chintamani-chowk",
+    "name": "Chintamani Nagar Central Crossroad",
+    "category": "Transit / Crossroad",
+    "description": "Central intersection connecting residential lanes in Chintamani Nagar Part 1.",
+    "coordinates": [
+      73.8657142,
+      18.4653394
+    ],
+    "nearestNodeId": "node-4703226706",
+    "snapDistanceMetres": 0.0,
+    "snappedCoordinates": [
+      73.8657142,
+      18.4653394
     ]
   }
 ]
