@@ -103,3 +103,13 @@ The engine never pushes an unnecessary detour when the shade difference is negli
   *"Recommended: Cooler route avoids direct sun by X.X minutes (Y min vs Z min) with a +W% distance difference."*
 - **Recommend Balanced Route:**
   Only when $\Delta_{\text{sun}} \ge 0.8\text{ min}$, $\text{Detour} \le 15\%$, and routes are non-coincident.
+
+---
+
+## 8. Curated Demonstration Trips (Demo Mode)
+
+To allow instant evaluation without requiring manual endpoint selection, 4 curated trips were systematically identified by `scripts/find_demo_trips.py` across candidate pairs separated by $\ge 400\text{ m}$:
+1. **Lake Town Junction → VIT Central Library:** Cooler route clearly wins, avoiding **2.6 minutes in direct sun** (35% sun exposure reduction) with a +22% detour.
+2. **VIT Library → Shree J. Hospital:** Highly efficient win, saving **1.4 minutes in direct sun** for a tiny **+3.4% detour** (+23 m).
+3. **Shri Vimalnath Temple → VIT Library:** Follows mature tree canopies, avoiding **1.2 minutes in direct sun** with only **+2.6% detour**.
+4. **VIT Main Gate → Shri Vimalnath Temple:** Shortest route is optimal (saves 0.0 minutes); honestly recommends shortest route without artificial detours.

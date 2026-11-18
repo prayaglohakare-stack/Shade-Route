@@ -23,24 +23,30 @@ ShadeRoute is a zero-budget, climate-aware pedestrian navigation web application
   - Evaluates each route segment at the estimated time the pedestrian reaches it based on a 1.25 m/s walking speed, capturing shifting shadow geometry as the pedestrian advances.
   - Quick presets: Morning (09:30), Solar Noon (12:30), Afternoon (15:30), Late Day (17:00), plus continuous time slider.
 - **Three Meaningful Route Alternatives:**
-  1. **Shortest Distance:** Direct path minimizing travel distance and walking time.
-  2. **Cooler Way (More Shade):** Maximizes walking under building shadows, tree crowns, and covered walkways within a bounded ~35% detour threshold.
+  1. **Shortest Distance:** Direct path minimizing travel distance and walking time via Dijkstra shortest path search.
+  2. **Cooler Way (More Shade):** Minimizes minutes in direct sun subject to a hard $\le 25\%$ distance detour constraint via bicriteria Pareto label-setting search.
   3. **Balanced Route:** Compromise route prioritizing shade with at most a 15% distance detour.
 - **Transparent Environmental Trade-off Metrics:**
-  - Total walking distance (metres) & duration (minutes at 1.25 m/s)
-  - Combined shade coverage (metres and percentage)
+  - **Minutes in direct sun** (Headline Metric): Calculated as $\sum \frac{\text{length} \times (1 - \text{shade})}{v_{\text{walk}} \times 60}$ at edge arrival time.
+  - Walking distance (metres) & duration (minutes at 1.25 m/s)
+  - Sun minutes saved and detour percentage vs shortest route
+  - Combined shade coverage (percentage and metres)
   - Independent breakdown: Building Shade % vs Tree Canopy % vs Covered Walkway %
-  - Exposed distance (metres and percentage)
+  - Unknown coverage % (midpoints outside data coverage box, never counted as exposed)
   - Uncertainty percentage (share of route reliant on Tier 4/5 height assumptions)
-  - Detour percentage vs shortest path
-  - Automated natural-language trade-off synthesis and recommendation.
-- **Interactive Multi-Layer Cartography:**
+  - Honest recommendation: If cooler route gains less than 1.0 minute in direct sun, it states plainly *"Shortest route is already about as shaded"*.
+- **Curated Demonstration Trips:**
+  - 3 trips where the cooler route clearly wins (saving 1.2 to 2.6 minutes in direct sun within 25% detour)
+  - 1 trip where the shortest route is optimal / about as shaded (honestly recommending shortest with no detour)
+- **Interactive Multi-Layer Cartography & Scrubber:**
+  - Semicircular sun-arc scrubber controlling time of day (07:00 to 17:00) with live solar altitude/azimuth readouts and Nov/Apr season toggle.
+  - Proportional shade ribbons on route cards displaying sunny, shaded, and hatched unknown fractions.
   - Independent layer toggles: 🏢 Building Shadows, 🌳 Tree Crowns, 📍 Tree Trunks, 🏛️ Buildings, 🚶 Street Network, ❓ Height Uncertainty.
-  - Clickable Feature Flyout Inspector: Click any building or tree to view heights, species, confidence tiers, and assumptions.
-- **Scientific Honesty & Data Disclosures:**
-  - Clearly explains what is measured (2019 tree census, OSM ways), what is modeled (building shadows, canopy crowns), and what is unknown.
-  - Never falsely claims to measure ambient air temperature.
-  - Explicitly documents height assumptions and never silently defaults unknown buildings.
+- **Scientific Honesty & Validation Status:**
+  - Shade estimates are modelled from OpenStreetMap footprints, estimated building heights and the 2019 PMC tree census. **No field validation has been done yet.**
+  - Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`.
+  - Zero fake or placeholder observation data or observation files.
+  - Explains plainly that shade is radiant heat blockage, not ambient air temperature.
 
 ---
 
@@ -88,7 +94,7 @@ Detailed documentation: [DATA_PROVENANCE.md](docs/DATA_PROVENANCE.md).
 ## 5. Methodology
 
 - **Canopy Crown Modeling:** Canopy diameter is treated strictly as a diameter ($R = D / 2$). Crowns are parameterized as circular polygons and intersected with line segments using quadratic line-clipping. Overlapping intervals on the same segment are merged to prevent double-counting. See [SHADE_METHODOLOGY.md](docs/SHADE_METHODOLOGY.md).
-- **Multi-Criteria Routing:** The routing engine evaluates edge costs balancing physical length, exposed distance, and shaded distance with detour guard limits (at most 35% detour for cooler routes). See [ROUTING_METHODOLOGY.md](docs/ROUTING_METHODOLOGY.md).
+- **Multi-Criteria Routing:** The routing engine evaluates edge costs balancing physical length, exposed distance, and shaded distance with strict detour guard limits ($\le 25\%$ detour for cooler routes, $\le 15\%$ for balanced routes). See [ROUTING_METHODOLOGY.md](docs/ROUTING_METHODOLOGY.md).
 - **Known Limitations:** Tree census records date from 2019; microclimate air temperatures are not directly measured. See [LIMITATIONS_AND_FUTURE_WORK.md](docs/LIMITATIONS_AND_FUTURE_WORK.md).
 
 ---

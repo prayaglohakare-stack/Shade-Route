@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AboutDialog } from './components/AboutDialog';
+import { DemoTripsModal } from './components/DemoTripsModal';
 import {
   MapView,
   type MapLayerVisibility,
@@ -8,6 +9,7 @@ import {
 } from './components/MapView';
 import { PlannerPanel } from './components/PlannerPanel';
 import { campusRepository, type RouteDataAvailability } from './data/campusRepository';
+import type { DemoTrip } from './data/demoTrips';
 import type { Landmark, PilotGeoData, RouteNetwork, ShadeRecord } from './data/types';
 import {
   calculateAllRoutes,
@@ -30,6 +32,8 @@ export default function App() {
   // Active view: Explore, Routes, About
   const [activeView, setActiveView] = useState<AppView>('routes');
   const [showAboutDialog, setShowAboutDialog] = useState(false);
+  const [showDemoModal, setShowDemoModal] = useState(false);
+  const [activeDemoTrip, setActiveDemoTrip] = useState<DemoTrip | null>(null);
 
   // Mobile Bottom Sheet snap points: peek (80px), half (45%), full (85%)
   const [sheetSnap, setSheetSnap] = useState<'peek' | 'half' | 'full'>('half');
@@ -193,6 +197,7 @@ export default function App() {
       snapDistanceMetres: snapped?.distanceMetres,
     };
 
+    setActiveDemoTrip(null);
     if (selectionMode === 'origin') setOrigin(completePoint);
     if (selectionMode === 'destination') setDestination(completePoint);
     setSelectionMode(null);
@@ -202,6 +207,7 @@ export default function App() {
   };
 
   const handleLandmarkChosen = (lm: Landmark, target: 'origin' | 'destination') => {
+    setActiveDemoTrip(null);
     const pt: SelectedMapPoint = {
       coordinates: lm.coordinates,
       snappedCoordinates: lm.snappedCoordinates,
@@ -214,13 +220,41 @@ export default function App() {
     else setDestination(pt);
   };
 
+  const handleSelectDemoTrip = (trip: DemoTrip) => {
+    setOrigin({
+      coordinates: trip.origin.coordinates,
+      snappedCoordinates: trip.origin.coordinates,
+      nodeId: trip.origin.nodeId,
+      label: trip.origin.label,
+      source: 'landmark-preset',
+      snapDistanceMetres: trip.origin.snapDistanceMetres,
+    });
+    setDestination({
+      coordinates: trip.destination.coordinates,
+      snappedCoordinates: trip.destination.coordinates,
+      nodeId: trip.destination.nodeId,
+      label: trip.destination.label,
+      source: 'landmark-preset',
+      snapDistanceMetres: trip.destination.snapDistanceMetres,
+    });
+    setDepartureHour(12);
+    setDepartureMinute(30);
+    setActiveDate('2026-11-18');
+    setActiveMode(trip.expectedOutcome.recommendedMode === 'more-canopy' ? 'more-canopy' : 'shortest');
+    setActiveDemoTrip(trip);
+    setActiveView('routes');
+    setSheetSnap('half');
+  };
+
   const swapEndpoints = () => {
+    setActiveDemoTrip(null);
     const temp = origin;
     setOrigin(destination);
     setDestination(temp);
   };
 
   const clearEndpoints = () => {
+    setActiveDemoTrip(null);
     setOrigin(null);
     setDestination(null);
     setRouteResult(null);
@@ -256,42 +290,53 @@ export default function App() {
           </div>
         </div>
 
-        {/* View Navigation Tabs: Explore, Routes, About */}
-        <nav className="view-nav-tabs" role="tablist" aria-label="Main navigation views">
+        {/* View Navigation Tabs: Explore, Routes, About + Demo Action */}
+        <div className="header-nav-cluster">
           <button
             type="button"
-            role="tab"
-            aria-selected={activeView === 'explore'}
-            className={`view-tab-btn ${activeView === 'explore' ? 'is-active' : ''}`}
-            onClick={() => {
-              setActiveView('explore');
-              setSheetSnap('peek');
-            }}
+            className="btn-demo-pill"
+            onClick={() => setShowDemoModal(true)}
+            title="Explore curated demonstration trips"
+            aria-label="Open curated demonstration trips"
           >
-            Explore
+            ★ Demo
           </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeView === 'routes'}
-            className={`view-tab-btn ${activeView === 'routes' ? 'is-active' : ''}`}
-            onClick={() => {
-              setActiveView('routes');
-              setSheetSnap('half');
-            }}
-          >
-            Routes
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={showAboutDialog}
-            className={`view-tab-btn ${showAboutDialog ? 'is-active' : ''}`}
-            onClick={() => setShowAboutDialog(true)}
-          >
-            About
-          </button>
-        </nav>
+          <nav className="view-nav-tabs" role="tablist" aria-label="Main navigation views">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === 'explore'}
+              className={`view-tab-btn ${activeView === 'explore' ? 'is-active' : ''}`}
+              onClick={() => {
+                setActiveView('explore');
+                setSheetSnap('peek');
+              }}
+            >
+              Explore
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeView === 'routes'}
+              className={`view-tab-btn ${activeView === 'routes' ? 'is-active' : ''}`}
+              onClick={() => {
+                setActiveView('routes');
+                setSheetSnap('half');
+              }}
+            >
+              Routes
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={showAboutDialog}
+              className={`view-tab-btn ${showAboutDialog ? 'is-active' : ''}`}
+              onClick={() => setShowAboutDialog(true)}
+            >
+              About
+            </button>
+          </nav>
+        </div>
       </header>
 
       {/* Main Workspace Layout: Full-Bleed Map + Planner Sheet */}
@@ -409,6 +454,8 @@ export default function App() {
           onSelectMode={setActiveMode}
           sheetSnap={sheetSnap}
           onSetSheetSnap={setSheetSnap}
+          onOpenDemo={() => setShowDemoModal(true)}
+          activeDemoTrip={activeDemoTrip}
         />
       </main>
 
@@ -443,6 +490,14 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Curated Demo Trips Modal */}
+      <DemoTripsModal
+        isOpen={showDemoModal}
+        onClose={() => setShowDemoModal(false)}
+        onSelectTrip={handleSelectDemoTrip}
+        currentTripId={activeDemoTrip?.id}
+      />
 
       {/* About & Methodology Dialog */}
       <AboutDialog isOpen={showAboutDialog} onClose={() => setShowAboutDialog(false)} />

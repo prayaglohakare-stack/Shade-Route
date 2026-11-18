@@ -20,6 +20,16 @@ Transparency is a fundamental core principle of ShadeRoute. Below is the complet
 2. **Elevation & Incline:**
    - The routing engine models 2D horizontal network distance and does not yet penalize steep pedestrian stairways or slopes in walking effort calculations.
 
+### C. Validation Status & Honest Model Disclosure
+1. **Modelled Estimates — No Field Validation:**
+   - Shade estimates are modelled from OpenStreetMap footprints, estimated building heights and the 2019 PMC tree census. **No field validation has been done yet.**
+   - Every network edge is labelled `accessStatus: "osm-derived"` and `verificationStatus: "unverified"`.
+   - No fake or placeholder ground observation data or observation files are created.
+2. **Field Validation Roadmap:**
+   - **Physical Field Walk:** Walk selected corridors across Bibwewadi with GPS tracking during 3 times of day: morning (09:30 IST), solar noon (12:30 IST), and late afternoon (16:30 IST).
+   - **Timestamped Ground Truth Photos:** Georeferenced photographs capturing physical building shadow cast extents and tree crown ground shadows.
+   - **Quantitative Concordance Check:** Systematic comparison of predicted hourly slot shade fractions against physical shadows to calibrate building height assumptions and crown opacity.
+
 ---
 
 ## 2. Defensible Roadmap for Future Development

@@ -1,5 +1,6 @@
 import type { Landmark, RouteNetwork, ShadeRecord } from '../data/types';
 import type { RouteComparisonResult, RouteMode } from '../routing/routeEngine';
+import type { DemoTrip } from '../data/demoTrips';
 import type { MapSelectionMode, SelectedMapPoint } from './MapView';
 import { RouteCard } from './RouteCard';
 import { SunScrubber } from './SunScrubber';
@@ -29,6 +30,7 @@ export interface PlannerPanelProps {
   sheetSnap: 'peek' | 'half' | 'full';
   onSetSheetSnap: (snap: 'peek' | 'half' | 'full') => void;
   onOpenDemo?: () => void;
+  activeDemoTrip?: DemoTrip | null;
 }
 
 export function PlannerPanel({
@@ -55,6 +57,7 @@ export function PlannerPanel({
   sheetSnap,
   onSetSheetSnap,
   onOpenDemo,
+  activeDemoTrip,
 }: PlannerPanelProps) {
   const shadeMap = new Map<string, ShadeRecord>(shadeRecords.map((r) => [r.edgeId, r]));
 
@@ -85,12 +88,50 @@ export function PlannerPanel({
         <div className="planner-header">
           <div className="title-row">
             <h2>Pedestrian Route Planner</h2>
-            <span className="pilot-badge">Bibwewadi Pilot</span>
+            <div className="header-chips-group">
+              <span className="pilot-badge">Bibwewadi Pilot</span>
+              {onOpenDemo && (
+                <button
+                  type="button"
+                  className="btn-demo-header"
+                  onClick={onOpenDemo}
+                  title="Open curated demonstration trips"
+                  aria-label="Open curated demonstration trips"
+                >
+                  ★ Demo
+                </button>
+              )}
+            </div>
           </div>
           <p className="subtitle">
             Minimising direct solar radiation through combined building shadows and tree crowns.
           </p>
         </div>
+
+        {/* Active Demo Trip Indicator */}
+        {activeDemoTrip && (
+          <div className="active-demo-banner" role="status">
+            <div className="active-demo-content">
+              <span className="active-demo-star" aria-hidden="true">★</span>
+              <div>
+                <span className="active-demo-tag">
+                  {activeDemoTrip.tag === 'cooler-win' ? 'Demo: Cooler Route Wins' : 'Demo: Shortest Route Optimal'}
+                </span>
+                <p className="active-demo-title">{activeDemoTrip.title}</p>
+              </div>
+            </div>
+            {onOpenDemo && (
+              <button
+                type="button"
+                className="btn-change-demo"
+                onClick={onOpenDemo}
+                aria-label="Change demonstration trip"
+              >
+                Change
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Skeleton Loading State */}
         {isLoading && (
